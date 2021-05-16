@@ -1,0 +1,14 @@
+[user]
+	name = Antoine Foures
+	email = me+github@afoures.com
+[init]
+	defaultBranch = main
+[core]
+	excludesfile = ~/.config/git/.gitignore
+	ignorecase = false
+[color]
+	ui = true
+[include]
+	path = ./aliases
+[includeIf "gitdir:~/code/matters/"]
+	path = ./config.matters

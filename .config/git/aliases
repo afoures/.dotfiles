@@ -1,0 +1,11 @@
+[alias]
+	whoami = config user.email
+
+	branches = branch -a
+	remotes = remote -v
+	tags = tag -l
+	stashes = stash list
+	contributors = shortlog --summary --numbered
+	
+	amend = commit --amend
+	undo = reset --soft HEAD~1
