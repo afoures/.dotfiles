@@ -17,7 +17,7 @@ setup_symlinks() {
   source setup/symlink.sh
 }
 
-setup_default_shel() {
+setup_default_shell() {
   # chsh -s $(which zsh)
   echo ""
 }
