@@ -1,0 +1,4 @@
+.zcompdump
+Brewfile.lock.json
+.backups
+private.sh
