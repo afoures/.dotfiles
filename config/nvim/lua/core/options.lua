@@ -27,6 +27,6 @@ vim.opt.signcolumn = "yes"
 vim.opt.isfname:append("@-@")
 
 vim.opt.list = true
-vim.opt.listchars = { eol = '↵', trail = '·', nbsp = '␣' }
+vim.opt.listchars = { tab = '> ', eol = '↵', trail = '·', nbsp = '␣' }
 
 vim.opt.updatetime = 50
