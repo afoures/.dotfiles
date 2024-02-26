@@ -26,16 +26,3 @@ function archive {
   mv $@ $WORKSPACE/.archives/
 }
 alias delete_DSfiles="find . -name '.DS_Store' -type f -delete"
-
-function set_emoji {
-  EMOJI="$*"
-}
-function random_emoji {
-  EMOJIS=(🔥 🚀 👻 🤖 🦄 🥓 🌮 🎉 💯 🐳 🦁 🦊 🐙 🦖 🦕 🐍 🐢 ✨ ☄️ ⚡️ 💥)
-  set_emoji "${EMOJIS[$RANDOM % ${#EMOJIS[@]}]}"
-}
-alias blastoff="set_emoji 🚀"
-alias trex="set_emoji 🦖"
-alias octopus="set_emoji 🐙"
-alias rde="random_emoji"
-random_emoji
