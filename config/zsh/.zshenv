@@ -22,3 +22,6 @@ export XDG_CACHE_HOME="$HOME/.cache"
 # $XDG_STATE_HOME
 # $XDG_CACHE_HOME
 # https://specifications.freedesktop.org/basedir-spec/latest/ar01s02.html
+
+# bun completions
+[ -s "/Users/afoures/.bun/_bun" ] && source "/Users/afoures/.bun/_bun"

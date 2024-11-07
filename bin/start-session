@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+code=$(find ~/code/* -mindepth 1 -maxdepth 1 -type d -not -path '*/.*')
+dotfiles='~/code/.dotfiles'
+
+selected=$(echo -e "$dotfiles\n${code//$HOME/~}" | fzf)
+
+if [[ -z $selected ]]; then
+    exit 0
+fi
+
+session_name=${selected/#~\/code\//}
+sanitized_session_name=${session_name//./_}
+path=${selected/#~/$HOME}
+tmux_running=$(pgrep tmux)
+
+if [[ -z $TMUX ]] && [[ -z $tmux_running ]]; then
+    tmux new-session -s "$sanitized_session_name" -c "$path"
+    exit 0
+fi
+
+if ! tmux has-session -t="$sanitized_session_name" 2> /dev/null; then
+    tmux new-session -ds "$sanitized_session_name" -c "$path"
+fi
+
+tmux switch-client -t "$sanitized_session_name"

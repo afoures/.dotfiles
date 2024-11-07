@@ -54,14 +54,20 @@ make_prompt() {
   PS2='.... '
 }
 
+set_cursor() {
+  # 3 is blincking underline cursor
+  echo -ne '\e[3 q'
+}
+
 preexec() {
   execution_start_realtime=${EPOCHREALTIME}
 }
 
-precmd() { 
+precmd() {
   vcs_info
   compute_execution_time
   make_prompt
+  set_cursor
 }
 
 # making sure prompt is correctly extended
