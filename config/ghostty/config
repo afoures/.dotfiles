@@ -1,0 +1,39 @@
+font-family = MonoLisa
+font-feature = -liga
+font-feature = -calt
+font-feature = -dlig
+font-size = 15
+font-thicken = true
+
+theme = tokyonight
+# theme = catppuccin-frappe
+# theme = rose-pine-moon
+
+shell-integration-features = no-cursor,no-title,sudo
+
+cursor-style = underline
+cursor-style-blink = true
+adjust-underline-thickness = 2
+adjust-cursor-thickness = 2
+adjust-cell-height = 10%
+
+background-opacity = 0.95
+background-blur-radius = 20
+window-colorspace = display-p3
+
+window-padding-x = 24
+window-padding-y = 20
+window-padding-balance = true
+
+# window-decoration = false
+macos-titlebar-style = hidden
+macos-window-shadow = false
+
+# macos-icon = blueprint
+# macos-icon-frame = plastic
+# macos-icon-ghost-color = #ff0000
+# macos-icon-screen-color = #707070
+
+confirm-close-surface = false
+quit-after-last-window-closed = true
+window-save-state = always

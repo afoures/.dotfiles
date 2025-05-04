@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+current_nvim_config=$(cat "$XDG_CONFIG_HOME/nvim/appname")
+
+configs=$(find "$XDG_CONFIG_HOME" -maxdepth 1 -name 'nvim-*' | while read -r path; do
+    name=$(basename "$path")
+    suffix=${name#nvim-}
+    if [ "$name" = "$current_nvim_config" ]; then
+        echo "$suffix*"
+    else
+        echo "$suffix"
+    fi
+done | sort)
+
+selected=$(echo -e "$configs" | fzf-tmux --border-label " choose a neovim config to test " -p -w 65% -h 65%)
+if [[ -z $selected ]]; then
+    exit 0
+fi
+selected="${selected%\*}"
+
+NVIM_APPNAME="nvim-$selected" command nvim

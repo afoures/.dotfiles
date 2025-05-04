@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+code=$(find $WORKSPACE/* -mindepth 1 -maxdepth 1 -type d -not -path '*/.*')
+
+selected=$(echo -e "${$DOTFILES//$HOME/~}\n${code//$HOME/~}" | fzf-tmux --border-label " select session " -p -w 65% -h 65%)
+if [[ -z $selected ]]; then
+    exit 0
+fi
+
+session_name=${selected/#~\/code\//}
+sanitized_session_name=${session_name//./_}
+path=${selected/#~/$HOME}
+
+is_in_tmux_context=$(echo $TMUX)
+tmux_running=$(pgrep tmux)
+
+if [[ -z $is_in_tmux_context ]] && [[ -z $tmux_running ]]; then
+    tmux new-session -s "$sanitized_session_name" -c "$path"
+    exit 0
+fi
+
+if ! tmux has-session -t "$sanitized_session_name" 2> /dev/null; then
+    tmux new-session -ds "$sanitized_session_name" -c "$path"
+fi
+
+if [[ -z $is_in_tmux_context ]]; then
+  tmux attach -t "$sanitized_session_name"
+else
+  tmux switch-client -t "$sanitized_session_name"
+fi

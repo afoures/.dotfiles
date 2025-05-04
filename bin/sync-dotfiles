@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 number_of_new_commit=$(git fetch > /dev/null; git rev-list HEAD...origin/main --count)
 if [[ number_of_new_commit -eq 0 ]]; then
   return

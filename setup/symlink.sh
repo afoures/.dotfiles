@@ -1,17 +1,16 @@
-if [ ! -d $HOME/.config ]; then
-  mkdir -p $HOME/.config
+#!/usr/bin/env bash
+
+echo "this will remove your current config files"
+read -p "confirm (y/n)? " -n 1 -r
+if [[ ! $REPLY =~ ^[Yy]$ ]]
+then
+  exit 1
 fi
 
-for config in $SETUP_FOLDER/config/*; do
-  target="$HOME/.config/$(basename "$config")"
-  if [ -e "$target" ]; then
-    echo "~${target#$HOME} already exists... Skipping."
-  else
-    echo "Creating symlink for $config"
-    ln -s "$config" "$target"
-  fi
-done
+rm "$HOME/.config"
+ln -s "$DOTFILES/config" "$HOME/.config"
+echo "created symlink for $HOME/.config"
 
-if [ ! -e "$HOME/.zshenv" ]; then
-  ln -s ".config/zsh/.zshenv" "$HOME/.zshenv"
-fi
+rm "$HOME/.zshenv"
+ln -s ".config/zsh/.zshenv" "$HOME/.zshenv"
+echo "created symlink for $HOME/.zshenv"

@@ -1,6 +1,5 @@
-#!/bin/bash
-SETUP_FOLDER=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-BACKUP_FOLDER="$SETUP_FOLDER/.backups"
+#!/usr/bin/env bash
+BACKUP_FOLDER="$DOTFILES/.backups"
 CURRENT_BACKUP="$BACKUP_FOLDER/backup_$(date +%s)"
 
 echo "everything will be saved in ~${CURRENT_BACKUP#$HOME}"
@@ -8,8 +7,7 @@ echo "everything will be saved in ~${CURRENT_BACKUP#$HOME}"
 mkdir -p "$CURRENT_BACKUP"
 mkdir -p "$CURRENT_BACKUP/.config"
 
-for config in $SETUP_FOLDER/config/*; do
-  target="$HOME/.config/$(basename "$config")"
+for target in $HOME/.config/*; do
   if [ -e "$target" ]; then
     echo "creating backup for ~${target#$HOME}"
     cp -rf "$target" "$CURRENT_BACKUP/.config/$(basename "$target")"

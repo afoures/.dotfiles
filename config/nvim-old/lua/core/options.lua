@@ -7,7 +7,7 @@ vim.opt.termguicolors = true
 vim.opt.number = true
 vim.opt.relativenumber = true
 
-vim.opt.guicursor = 'c-n:hor50-Cursor,i:ver50-Cursor'
+vim.opt.guicursor = 'c-n:hor50-Cursor,i:ver50-Cursor,a:blinkon1'
 vim.opt.cursorline = true
 
 vim.opt.mouse = 'a'

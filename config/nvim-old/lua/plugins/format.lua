@@ -14,7 +14,17 @@ return {
       },
     },
     opts = {
-      notify_on_error = false,
+      -- formatters configuration
+      formatters_by_ft = {
+        lua = { 'stylua' },
+        javascript = { 'eslint_d', 'prettierd' },
+        javascriptreact = { 'eslint_d', 'prettierd' },
+        typescript = { 'eslint_d', 'prettierd' },
+        typescriptreact = { 'eslint_d', 'prettierd' },
+        css = { 'prettierd' },
+        json = { 'prettierd' },
+      },
+      -- set up format-on-save
       format_on_save = function(bufnr)
         -- disable "format_on_save lsp_fallback" for languages that don't
         -- have a well standardized coding style. you can add additional
@@ -31,14 +41,10 @@ return {
           lsp_format = lsp_format_opt,
         }
       end,
-      formatters_by_ft = {
-        lua = { 'stylua' },
-        javascript = { 'prettierd' },
-        javascriptreact = { 'prettierd' },
-        typescript = { 'prettierd' },
-        typescriptreact = { 'prettierd' },
-        css = { 'prettierd' },
-      },
+      notify_on_error = false,
     },
   },
+  init = function()
+    vim.o.formatexpr = "v:lua.require'conform'.formatexpr()"
+  end,
 }

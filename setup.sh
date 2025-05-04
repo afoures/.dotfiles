@@ -1,10 +1,28 @@
-#!/bin/bash
-export SETUP_FOLDER=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+#!/usr/bin/env bash
 
-setup_osx() {
-  if [ "$(uname)" == "Darwin" ]; then
-    source setup/osx.sh
+export WORKSPACE="$HOME/code"
+export DOTFILES="$WORKSPACE/.dotfiles"
+
+setup_xcode_select() {
+  if ! xcode-select -p &>/dev/null; then
+    echo "installing xcode-select, this will take some time, please wait..."
+    xcode-select --install
+    echo "waiting for xcode-select installation to complete..."
+    while ! xcode-select -p &>/dev/null; do
+      sleep 20
+    done
+    echo "xcode-select installed."
+  else
+    echo "xcode-select is already installed."
   fi
+}
+
+backup_current_config() {
+  source backup.sh
+}
+
+setup_github_ssh_key() {
+  source setup/github-ssh.sh
 }
 
 setup_homebrew() {
@@ -13,29 +31,27 @@ setup_homebrew() {
   fi
 }
 
+clone_dotfiles() {
+  source setup/clone-dotfiles.sh
+}
+
+setup_osx() {
+  if [ "$(uname)" == "Darwin" ]; then
+    source setup/osx.sh
+  fi
+}
+
 setup_symlinks() {
   source setup/symlink.sh
 }
 
-setup_default_shell() {
-  # chsh -s $(which zsh)
-  echo ""
-}
 
-case "$1" in
-  homebrew)
-    setup_homebrew
-    ;;
-  osx)
-    setup_osx
-    ;;
-  symlinks)
-    setup_symlinks
-    ;;
-  *)
-    setup_symlinks
-    setup_homebrew
-    setup_osx
-    setup_default_shell
-    ;;
-esac
+mkdir -p $WORKSPACE
+
+setup_xcode_select
+setup_github_ssh_key
+clone_dotfiles
+backup_current_config
+setup_homebrew
+setup_symlinks
+setup_osx
