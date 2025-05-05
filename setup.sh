@@ -22,7 +22,6 @@ backup_current_config() {
 }
 
 setup_github_ssh_key() {
-
   SSH_KEY="$HOME/.ssh/id_ed25519_github"
   SSH_CONFIG="$HOME/.ssh/config"
 
