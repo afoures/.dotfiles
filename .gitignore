@@ -4,3 +4,4 @@ Brewfile.lock.json
 private.sh
 config/tmux/plugins/*
 config/.wrangler
+config/zsh/.zsh_sessions

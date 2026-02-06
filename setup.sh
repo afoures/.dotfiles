@@ -198,7 +198,7 @@ setup_symlinks() {
   echo "created symlink for $HOME/.config"
 
   rm "$HOME/.zshenv"
-  ln -s ".config/zsh/.zshenv" "$HOME/.zshenv"
+  ln -s "$HOME/.config/zsh/.zshenv" "$HOME/.zshenv"
   echo "created symlink for $HOME/.zshenv"
 }
 
