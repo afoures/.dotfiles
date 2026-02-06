@@ -1,0 +1,8 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "theme": "system",
+  "autoupdate": true,
+  "experimental": {
+    "OPENCODE_EXPERIMENTAL_OXFMT": true,
+  },
+}
