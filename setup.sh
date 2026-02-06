@@ -108,8 +108,6 @@ setup_homebrew() {
       echo "homebrew is already installed."
     fi
     
-    echo >> $DOTFILES/config/zsh/.zprofile
-    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> $DOTFILES/config/zsh/.zprofile
     eval "$(/opt/homebrew/bin/brew shellenv)"
 
     brew bundle --file=$DOTFILES/brew/default-setup
@@ -186,20 +184,53 @@ setup_osx() {
 }
 
 setup_symlinks() {
-  echo "this will remove your current config files"
+  echo "this will create symlinks for all config directories"
   read -p "confirm (y/n)? " -n 1 -r
   if [[ ! $REPLY =~ ^[Yy]$ ]]
   then
     exit 1
   fi
 
-  rm "$HOME/.config"
-  ln -s "$DOTFILES/config" "$HOME/.config"
-  echo "created symlink for $HOME/.config"
+  # Create .config directory if it doesn't exist
+  if [[ ! -d "$HOME/.config" ]]; then
+    mkdir -p "$HOME/.config"
+    echo "created $HOME/.config directory"
+  fi
 
-  rm "$HOME/.zshenv"
-  ln -s "$HOME/.config/zsh/.zshenv" "$HOME/.zshenv"
-  echo "created symlink for $HOME/.zshenv"
+  # Symlink each config directory individually
+  for config_dir in "$DOTFILES/config"/*/; do
+    if [[ -d "$config_dir" ]]; then
+      config_name=$(basename "$config_dir")
+      target_path="$HOME/.config/$config_name"
+      
+      # Skip if already correctly symlinked
+      if [[ -L "$target_path" && "$(readlink "$target_path")" == "$config_dir" ]]; then
+        echo "symlink for $config_name already exists and is correct, skipping"
+        continue
+      fi
+      
+      # Remove existing directory/file if it exists (backup already done by backup.sh)
+      if [[ -e "$target_path" || -L "$target_path" ]]; then
+        rm -rf "$target_path"
+      fi
+      
+      # Create symlink
+      ln -s "$config_dir" "$target_path"
+      echo "created symlink for $config_name"
+    fi
+  done
+
+  # Handle .zshenv separately
+  if [[ -L "$HOME/.zshenv" && "$(readlink "$HOME/.zshenv")" == "$HOME/.config/zsh/.zshenv" ]]; then
+    echo ".zshenv symlink already correct, skipping"
+  else
+    # Remove existing file if it exists (backup already done by backup.sh)
+    if [[ -e "$HOME/.zshenv" || -L "$HOME/.zshenv" ]]; then
+      rm -rf "$HOME/.zshenv"
+    fi
+    ln -s "$HOME/.config/zsh/.zshenv" "$HOME/.zshenv"
+    echo "created symlink for $HOME/.zshenv"
+  fi
 }
 
 
