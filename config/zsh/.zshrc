@@ -17,6 +17,8 @@ export FZF_DEFAULT_OPTS='
 export CLICOLOR=1
 # export LSCOLORS=GxFxCxDxBxegedabagacad
 
+export BUN_INSTALL="$HOME/.bun"
+
 # ~~~~~~~~~~~~~~~ path configuration ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 setopt extended_glob              # extended globbing (use `**` for recursive globbing)
@@ -27,6 +29,8 @@ setopt nocaseglob                 # case-insensitive globbing
 path=(
   $path                           # keep existing PATH entries
   $DOTFILES/bin                   # dotfiles scripts
+  $BUN_INSTALL/bin                # bun script
+  $HOME/.opencode/bin
 )
 
 # remove duplicate entries and non-existent directories
@@ -56,9 +60,6 @@ alias gpull="git pull"
 alias ls="ls -Ap" 
 alias ll="ls -lahp"
 
-function nvim {
-  NVIM_APPNAME=$(cat $XDG_CONFIG_HOME/nvim/appname) command nvim $@
-}
 alias v="nvim"
 alias vi="nvim"
 alias vim="nvim"
@@ -187,6 +188,7 @@ prompt_precmd() {
   vcs_info
   compute_execution_time
   make_prompt
+  export NVIM_APPNAME=$(cat $XDG_CONFIG_HOME/nvim/appname)
 }
 
 # making sure prompt is correctly extended
@@ -223,6 +225,7 @@ zstyle ':completion:*' menu select
 
 # example to install completion:
 # talosctl completion zsh > $ZDOTDIR/.zfunc/_talosctl
+[ -s "/Users/afoures/.bun/_bun" ] && source "/Users/afoures/.bun/_bun"
 
 # ~~~~~~~~~~~~~~~ sourcing ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

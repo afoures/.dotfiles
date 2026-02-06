@@ -3,3 +3,4 @@ Brewfile.lock.json
 .backups
 private.sh
 config/tmux/plugins/*
+config/.wrangler

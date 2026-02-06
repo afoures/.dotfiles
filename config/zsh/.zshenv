@@ -11,12 +11,14 @@ ZDOTDIR="${${(%):-%x}:P:h}"
 export WORKSPACE="$HOME/code"
 export DOTFILES="$(dirname $(dirname $ZDOTDIR))"
 
-export EDITOR="nvim"
-export VISUAL="nvim"
-export GIT_EDITOR="nvim"
-
 # XDG base directory specification
 export XDG_CONFIG_HOME="$HOME/.config"         # config files
 export XDG_CACHE_HOME="$HOME/.cache"           # cache files
 export XDG_DATA_HOME="$HOME/.local/share"      # application data
 export XDG_STATE_HOME="$HOME/.local/state"     # logs and state files
+
+export NVIM_APPNAME=$(cat $XDG_CONFIG_HOME/nvim/appname)
+export EDITOR="nvim"
+export VISUAL="nvim"
+export GIT_EDITOR="nvim"
+

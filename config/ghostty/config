@@ -22,11 +22,12 @@ background-blur-radius = 20
 window-colorspace = display-p3
 
 window-padding-x = 24
-window-padding-y = 20
+window-padding-y = 16
 window-padding-balance = true
 
 # window-decoration = false
-macos-titlebar-style = hidden
+# title = " "
+macos-titlebar-style = tabs
 macos-window-shadow = false
 
 # macos-icon = blueprint
