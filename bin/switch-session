@@ -2,7 +2,7 @@
 
 code=$(find $WORKSPACE/* -mindepth 1 -maxdepth 1 -type d -not -path '*/.*')
 
-selected=$(echo -e "${$DOTFILES//$HOME/~}\n${code//$HOME/~}" | fzf-tmux --border-label " select session " -p -w 65% -h 65%)
+selected=$(echo -e "${DOTFILES//$HOME/~}\n${code//$HOME/~}" | fzf-tmux --border-label " select session " -p -w 65% -h 65%)
 if [[ -z $selected ]]; then
     exit 0
 fi
