@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if [[ $# -lt 1 ]]; then
+  echo "usage: adopt <config-name>" >&2
+  echo "example: adopt raycast" >&2
+  exit 1
+fi
+
+CONFIG_NAME="$1"
+SOURCE_PATH="$HOME/.config/$CONFIG_NAME"
+DEST_PATH="$DOTFILES/config/$CONFIG_NAME"
+
+if [[ -z "${DOTFILES:-}" ]]; then
+  echo "error: DOTFILES environment variable is not set" >&2
+  exit 1
+fi
+
+if [[ ! -d "$SOURCE_PATH" ]]; then
+  echo "error: '$SOURCE_PATH' does not exist or is not a directory" >&2
+  exit 1
+fi
+
+if [[ -L "$SOURCE_PATH" ]]; then
+  echo "error: '$SOURCE_PATH' is already a symlink (already adopted?)" >&2
+  exit 1
+fi
+
+if [[ -e "$DEST_PATH" ]]; then
+  echo "error: '$DEST_PATH' already exists in dotfiles" >&2
+  echo "       remove it manually if you want to replace it" >&2
+  exit 1
+fi
+
+mkdir -p "$(dirname "$DEST_PATH")"
+
+mv "$SOURCE_PATH" "$DEST_PATH"
+
+ln -s "$DEST_PATH" "$SOURCE_PATH"
+
+echo "adopted '$CONFIG_NAME' into dotfiles"
+echo "  source: $SOURCE_PATH"
+echo "  dest:   ${DEST_PATH/#$HOME/~}"
+
+cd "$DOTFILES"
+
+git add "config/$CONFIG_NAME"
+
+DEFAULT_MESSAGE="adopt: add $CONFIG_NAME config"
+echo ""
+read -rp "commit message [$DEFAULT_MESSAGE]: " message
+message="${message:-$DEFAULT_MESSAGE}"
+
+git commit -m "$message"
+
+echo ""
+echo "committed: $message"
