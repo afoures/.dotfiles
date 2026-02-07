@@ -1,3 +1,6 @@
+auto-update = check
+auto-update-channel = tip
+
 font-family = MonoLisa
 font-feature = -liga
 font-feature = -calt
