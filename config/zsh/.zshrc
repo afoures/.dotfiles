@@ -11,6 +11,7 @@ function archive {
 }
 alias delete_DSfiles="find . -name '.DS_Store' -type f -delete"
 
+alias g="git"
 alias gu="git undo"
 function gc { git commit -m "$@" }
 alias gs="git status"
@@ -194,5 +195,26 @@ zstyle ':completion:*' menu select
 [[ -f "$ZDOTDIR/.privaterc" ]] && source "$ZDOTDIR/.privaterc"
 
 eval "$(fnm env --use-on-cd --corepack-enabled)"
+
+# ~~~~~~~~~~~~~~~ auto-sync dotfiles ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# activate this after extensive testing of the sync-dotfiles script
+
+# # Run dotfiles sync once per hour in the background (quiet mode)
+# # Uses timestamp file for persistence across shell sessions
+# SYNC_TIMESTAMP_FILE="${DOTFILES}/.last-sync"
+# SYNC_INTERVAL=18000  # 5 hours in seconds
+
+# if [[ -f "$SYNC_TIMESTAMP_FILE" ]]; then
+#   LAST_SYNC=$(stat -f%m "$SYNC_TIMESTAMP_FILE" 2>/dev/null || stat -c%Y "$SYNC_TIMESTAMP_FILE" 2>/dev/null)
+# else
+#   LAST_SYNC=0
+# fi
+
+# CURRENT_TIME=$(date +%s)
+# if (( CURRENT_TIME - LAST_SYNC >= SYNC_INTERVAL )); then
+#   touch "$SYNC_TIMESTAMP_FILE"
+#   ("$DOTFILES/bin/sync-dotfiles" --quiet --unattended &) 2>/dev/null
+# fi
 
 #zprof

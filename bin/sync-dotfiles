@@ -1,20 +1,239 @@
 #!/usr/bin/env bash
 
-number_of_new_commit=$(git fetch > /dev/null; git rev-list HEAD...origin/main --count)
-if [[ number_of_new_commit -eq 0 ]]; then
-  return
+set -euo pipefail
+
+# Parse arguments
+QUIET=false
+UNATTENDED=false
+
+for arg in "$@"; do
+  case $arg in
+    --quiet|-q)
+      QUIET=true
+      shift
+      ;;
+    --unattended)
+      UNATTENDED=true
+      shift
+      ;;
+  esac
+done
+
+# Check if we're in the dotfiles directory
+export WORKSPACE="${WORKSPACE:-$HOME/code}"
+export DOTFILES="${DOTFILES:-$WORKSPACE/.dotfiles}"
+cd "$DOTFILES"
+
+# Acquire lock to prevent concurrent runs
+LOCK_FILE="${DOTFILES}/.sync.lock"
+LOCK_PID="$$"
+
+# Try to create lock file with shlock (macOS)
+if command -v shlock >/dev/null 2>&1; then
+  if ! shlock -p "$LOCK_PID" -f "$LOCK_FILE" 2>/dev/null; then
+    echo "error: another sync is already running" >&2
+    exit 1
+  fi
+  # shlock will automatically release when PID dies
+# Fallback: flock (Linux)
+elif command -v flock >/dev/null 2>&1; then
+  exec 200>"$LOCK_FILE"
+  if ! flock -n 200; then
+    echo "error: another sync is already running" >&2
+    exit 1
+  fi
+# Fallback: simple file lock
+else
+  if [[ -f "$LOCK_FILE" ]]; then
+    OLD_PID=$(cat "$LOCK_FILE" 2>/dev/null || echo "")
+    if [[ -n "$OLD_PID" ]] && kill -0 "$OLD_PID" 2>/dev/null; then
+      echo "error: another sync is already running [PID: $OLD_PID]" >&2
+      exit 1
+    fi
+  fi
+  echo "$$" > "$LOCK_FILE"
 fi
 
-git merge --no-commit --no-ff main > /dev/null
-has_conflict=$?
-if [[ ! has_conflict -eq 0 ]]; then
-  git merge --abort
-  return
+# Cleanup lock on exit
+cleanup() {
+  if [[ -f "$LOCK_FILE" ]]; then
+    rm -f "$LOCK_FILE"
+  fi
+}
+trap cleanup EXIT
+
+# Logging function
+log() {
+  if [[ "$QUIET" == "false" ]]; then
+    echo "$@"
+  fi
+}
+
+# Check for updates
+log "checking for dotfiles updates..."
+
+# Fetch updates with error handling
+if ! git fetch origin main > /dev/null 2>&1; then
+  echo "error: failed to fetch updates from origin/main" >&2
+  exit 1
 fi
 
-git pull > /dev/null
+number_of_new_commit=$(git rev-list HEAD...origin/main --count 2>/dev/null || echo "0")
+if [[ "$number_of_new_commit" -eq 0 ]]; then
+  log "dotfiles are up to date"
+  exit 0
+fi
 
-# - if brew file changed, run it
-# - if kitty config changed, reload it
-# - if zsh config changed, source it
-# - if tmux config changed, reload it
+log "found $number_of_new_commit new commits, syncing..."
+
+# Check if pull would create merge conflicts
+# We do this by attempting a test merge (which will fail if there are conflicts)
+if ! git merge --no-commit --no-ff origin/main > /dev/null 2>&1; then
+  # Clean up the failed merge state before exiting
+  git merge --abort > /dev/null 2>&1 || true
+  
+  # Check if the failure was due to uncommitted local changes
+  if ! git diff-index --quiet --cached HEAD -- 2>/dev/null || ! git diff-files --quiet 2>/dev/null; then
+    echo "error: you have uncommitted changes that conflict with remote updates." >&2
+    echo "       please commit, stash, or resolve your local changes first." >&2
+  else
+    echo "error: pulling would create merge conflicts with your local commits." >&2
+    echo "       please resolve manually." >&2
+  fi
+  exit 1
+fi
+
+# Clean up the test merge
+git merge --abort > /dev/null 2>&1 || true
+
+# Get list of changed files before pulling
+prev_head=$(git rev-parse HEAD)
+if ! git pull > /dev/null 2>&1; then
+  echo "error: failed to pull updates" >&2
+  exit 1
+fi
+new_head=$(git rev-parse HEAD)
+
+# Get changed files
+changed_files=$(git diff --name-only "$prev_head" "$new_head" 2>/dev/null || echo "")
+
+if [[ -z "$changed_files" ]]; then
+  log "no files changed"
+  exit 0
+fi
+
+# Track what we've done
+actions_done=()
+
+# 1. Handle brew packages
+if echo "$changed_files" | grep -q "^brew/default-setup"; then
+  log "brew bundle changed, updating packages..."
+  brew bundle --file="$DOTFILES/brew/default-setup"
+  actions_done+=("brew packages updated")
+fi
+
+# 2. Handle symlinks for new/changed config directories
+symlink_updated=false
+for config_dir in "$DOTFILES/config"/*/; do
+  if [[ ! -d "$config_dir" ]]; then
+    continue
+  fi
+  
+  config_name=$(basename "$config_dir")
+  target_path="$HOME/.config/$config_name"
+  
+  # Check if this config was in the changed files
+  if ! echo "$changed_files" | grep -q "^config/$config_name/"; then
+    continue
+  fi
+  
+  # Skip if already correctly symlinked
+  if [[ -L "$target_path" ]] && [[ "$(readlink "$target_path")" == "$config_dir" ]]; then
+    continue
+  fi
+  
+  # If target exists but is not our symlink
+  if [[ -e "$target_path" ]] || [[ -L "$target_path" ]]; then
+    echo "warning: $target_path already exists - not a symlink to dotfiles"
+    
+    # In unattended mode, auto-backup and replace
+    # In interactive mode, prompt for confirmation
+    proceed=false
+    if [[ "$UNATTENDED" == "true" ]]; then
+      proceed=true
+      log "auto-backing up and replacing - unattended mode"
+    else
+      read -p "backup and replace with symlink? [y/N] " -n 1 -r
+      echo
+      if [[ $REPLY =~ ^[Yy]$ ]]; then
+        proceed=true
+      fi
+    fi
+    
+    if [[ "$proceed" == "true" ]]; then
+      # Backup using same convention as backup.sh
+      backup_dir="$DOTFILES/.backups/backup_$(date +%s)"
+      mkdir -p "$backup_dir/.config"
+      if cp -RL "$target_path" "$backup_dir/.config/"; then
+        echo "backed up to ${backup_dir/#$HOME/~}"
+        # Remove and create symlink
+        rm -rf "$target_path"
+        ln -s "$config_dir" "$target_path"
+        log "created symlink for $config_name - backed up existing"
+        symlink_updated=true
+      else
+        echo "error: failed to backup $target_path" >&2
+        exit 1
+      fi
+    else
+      log "skipped $config_name"
+    fi
+  else
+    # Create symlink
+    ln -s "$config_dir" "$target_path"
+    log "created symlink for $config_name"
+    symlink_updated=true
+  fi
+done
+
+if [[ "$symlink_updated" == "true" ]]; then
+  actions_done+=("symlinks updated")
+fi
+
+# 3. Handle config reloads/notifications
+
+# Tmux - auto reload if in tmux session
+if echo "$changed_files" | grep -q "^config/tmux/"; then
+  if [[ -n "${TMUX:-}" ]]; then
+    if tmux source-file "$HOME/.config/tmux/tmux.conf" 2>/dev/null; then
+      actions_done+=("tmux config reloaded")
+    else
+      log "tmux config changed - reload failed"
+    fi
+  else
+    log "tmux config changed - run 'tmux source-file ~/.config/tmux/tmux.conf' in your tmux session"
+  fi
+fi
+
+# Zsh - notify user (can't source from child process)
+if echo "$changed_files" | grep -q "^config/zsh/"; then
+  log "zsh config changed - run 'source ~/.config/zsh/.zshrc' or restart your shell"
+  actions_done+=("zsh config updated - manual reload needed")
+fi
+
+# Ghostty - notify user
+if echo "$changed_files" | grep -q "^config/ghostty/"; then
+  log "ghostty config changed - press Shift+Cmd+, to reload or restart ghostty"
+  actions_done+=("ghostty config updated - manual reload needed")
+fi
+
+# Summary
+if [[ ${#actions_done[@]} -gt 0 ]]; then
+  log ""
+  log "sync complete. changes:"
+  for action in "${actions_done[@]}"; do
+    log "  - $action"
+  done
+else
+  log "sync complete - no actionable changes"
+fi
