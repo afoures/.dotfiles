@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 export WORKSPACE="$HOME/code"
 export DOTFILES="$WORKSPACE/.dotfiles"
 
@@ -35,7 +37,7 @@ setup_github_ssh_key() {
   fi
 
   eval "$(ssh-agent -s)"
-  ssh-add -K "$SSH_KEY"
+  ssh-add --apple-use-keychain "$SSH_KEY"
 
   if ! grep -q "Host github.com" "$SSH_CONFIG" 2>/dev/null; then
     echo "setting up ssh config for GitHub..."
@@ -70,13 +72,13 @@ clone_and_update_repository() {
   # check if the directory exists
   if [ -d "$path" ]; then
     # check if directory is empty
-    if [ "$(ls -A "$path")" ]; then
-      echo "repository directory exists but is effectively empty. removing and cloning '$repo_name'..."
+    if [ ! "$(ls -A "$path")" ]; then
+      echo "directory exists but is empty. removing and cloning '$repository'..."
       rm -rf "$path"
       git clone "$git_repo" "$path" >/dev/null 2>&1
-    elif [ "$(ls -A "$path")" ]; then
+    else
       echo "repository '$repository' already exists. pulling latest changes..."
-      cd "$path" && git pull
+      (cd "$path" && git pull)
     fi
   else
     echo "cloning repository '$repository'..."
@@ -110,7 +112,16 @@ setup_homebrew() {
     
     eval "$(/opt/homebrew/bin/brew shellenv)"
 
-    brew bundle --file=$DOTFILES/brew/default-setup
+    brew bundle --file="$DOTFILES/brew/default-setup"
+
+    # optionally uninstall packages not listed in the brewfile.
+    # note: cleanup is per-file, so when using extra brewfiles for non-default
+    # setups, running this against default-setup will flag their packages too.
+    read -p "remove brew packages not in default-setup? (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      brew bundle cleanup --force --file="$DOTFILES/brew/default-setup"
+    fi
   fi
 }
 
@@ -131,8 +142,8 @@ setup_osx() {
 
     # screenshots
     defaults write com.apple.screencapture "include-date" -bool "true"
-    mkdir -p "~/Pictures/screenshots"
-    defaults write com.apple.screencapture "location" -string "~/Pictures/screenshots"
+    mkdir -p "$HOME/Pictures/screenshots"
+    defaults write com.apple.screencapture "location" -string "$HOME/Pictures/screenshots"
 
     # safari
     defaults write com.apple.Safari "ShowFullURLInSmartSearchField" -bool "true"
@@ -179,7 +190,7 @@ setup_osx() {
     # external screens
     defaults write NSGlobalDomain AppleFontSmoothing -int 2
 
-    for app in Safari Finder Dock Mail SystemUIServer ControlCenter; do killall "$app" >/dev/null 2>&1; done
+    for app in Safari Finder Dock Mail SystemUIServer ControlCenter; do killall "$app" >/dev/null 2>&1 || true; done
   fi
 }
 

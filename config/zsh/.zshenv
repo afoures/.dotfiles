@@ -49,6 +49,7 @@ path=(
   $DOTFILES/bin                   # dotfiles scripts
   $BUN_INSTALL/bin                # bun script
   $HOME/.opencode/bin
+  $HOME/.local/bin
 )
 
 # remove duplicate entries and non-existent directories

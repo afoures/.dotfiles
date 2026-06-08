@@ -69,6 +69,18 @@ log() {
   fi
 }
 
+# warn (but don't delete) when backups pile up
+warn_if_many_backups() {
+  local threshold=10
+  local backups_dir="$DOTFILES/.backups"
+  [[ -d "$backups_dir" ]] || return 0
+  local count
+  count=$(find "$backups_dir" -maxdepth 1 -type d -name 'backup_*' | wc -l | tr -d ' ')
+  if (( count > threshold )); then
+    log "note: $count backups in ${backups_dir/#$HOME/~} - consider pruning old ones"
+  fi
+}
+
 # Check for updates
 log "checking for dotfiles updates..."
 
@@ -171,11 +183,13 @@ for config_dir in "$DOTFILES/config"/*/; do
     fi
     
     if [[ "$proceed" == "true" ]]; then
-      # Backup using same convention as backup.sh
+      # Backup only the config being replaced (not the whole .config tree),
+      # using the same convention as backup.sh.
       backup_dir="$DOTFILES/.backups/backup_$(date +%s)"
       mkdir -p "$backup_dir/.config"
       if cp -RL "$target_path" "$backup_dir/.config/"; then
         echo "backed up to ${backup_dir/#$HOME/~}"
+        warn_if_many_backups
         # Remove and create symlink
         rm -rf "$target_path"
         ln -s "$config_dir" "$target_path"

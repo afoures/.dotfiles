@@ -5,6 +5,17 @@ set -e
 BACKUP_FOLDER="$DOTFILES/.backups"
 CURRENT_BACKUP="$BACKUP_FOLDER/backup_$(date +%s)"
 
+# warn (but don't delete) when backups pile up
+warn_if_many_backups() {
+  local threshold=10
+  [[ -d "$BACKUP_FOLDER" ]] || return 0
+  local count
+  count=$(find "$BACKUP_FOLDER" -maxdepth 1 -type d -name 'backup_*' | wc -l | tr -d ' ')
+  if (( count > threshold )); then
+    echo "note: $count backups in ~${BACKUP_FOLDER#$HOME} - consider pruning old ones"
+  fi
+}
+
 echo "backing up to ~${CURRENT_BACKUP#$HOME}"
 mkdir -p "$CURRENT_BACKUP/.config"
 
@@ -32,3 +43,4 @@ if command -v brew &>/dev/null; then
 fi
 
 echo "backup complete: ~${CURRENT_BACKUP#$HOME}"
+warn_if_many_backups

@@ -168,7 +168,7 @@ precmd_functions+=(prompt_precmd)
 
 [[ -d $ZDOTDIR/.zfunc ]] || mkdir -p "$ZDOTDIR/.zfunc"
 
-fpath+=$DOTFILES/zsh/.zfunc
+fpath+=$ZDOTDIR/.zfunc
 
 if type brew &>/dev/null; then
   fpath+=$(brew --prefix)/share/zsh-completions
