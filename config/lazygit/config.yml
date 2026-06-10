@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jesseduffield/lazygit/master/schema/config.json
+gui:
+  nerdFontsVersion: "3"
+services:
+  'gitlab.matters.tech': 'gitlab:gitlab.matters.tech'

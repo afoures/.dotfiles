@@ -27,6 +27,17 @@ alias v="nvim"
 alias vi="nvim"
 alias vim="nvim"
 
+alias philippe='CLAUDE_CONFIG_DIR="$XDG_CONFIG_HOME/claude/matters" command claude'
+
+function reload() {
+  # only works for zsh
+  if [[ -o login ]]; then
+    exec "$SHELL" -l
+  else
+    exec "$SHELL"
+  fi
+}
+
 # ~~~~~~~~~~~~~~~ history ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 local HISTORY_DIR="$XDG_CACHE_HOME/zsh"

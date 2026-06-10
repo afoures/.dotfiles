@@ -16,6 +16,7 @@ export XDG_CONFIG_HOME="$HOME/.config"         # config files
 export XDG_CACHE_HOME="$HOME/.cache"           # cache files
 export XDG_DATA_HOME="$HOME/.local/share"      # application data
 export XDG_STATE_HOME="$HOME/.local/state"     # logs and state files
+export XDG_BIN_DIR="$HOME/.local/bin"
 
 export NVIM_APPNAME=$(cat $XDG_CONFIG_HOME/nvim/appname)
 export EDITOR="nvim"
@@ -23,8 +24,12 @@ export VISUAL="nvim"
 export GIT_EDITOR="nvim"
 
 export CLICOLOR=1
+export SHELL_SESSIONS_DISABLE=1
 
-export BUN_INSTALL="$HOME/.bun"
+export NPM_CONFIG_CACHE="$XDG_CACHE_HOME/npm"
+export DOCKER_CONFIG="$XDG_CONFIG_HOME/docker"
+export CLAUDE_CONFIG_DIR="$XDG_CONFIG_HOME/claude/default"
+export BUN_INSTALL="$XDG_DATA_HOME/bun"
 
 export FZF_DEFAULT_OPTS='
   --color=fg:-1,fg+:-1,bg:-1,bg+:-1
@@ -46,10 +51,9 @@ setopt nocaseglob                 # case-insensitive globbing
 
 path=(
   $path                           # keep existing PATH entries
+  $XDG_BIN_DIR
   $DOTFILES/bin                   # dotfiles scripts
   $BUN_INSTALL/bin                # bun script
-  $HOME/.opencode/bin
-  $HOME/.local/bin
 )
 
 # remove duplicate entries and non-existent directories
@@ -60,3 +64,9 @@ export PATH
 
 # Homebrew
 eval "$(/opt/homebrew/bin/brew shellenv)"
+
+# opencode
+export PATH=/Users/antoine.foures/.opencode/bin:$PATH
+
+# bun completions
+[ -s "/Users/antoine.foures/.local/share/bun/_bun" ] && source "/Users/antoine.foures/.local/share/bun/_bun"
