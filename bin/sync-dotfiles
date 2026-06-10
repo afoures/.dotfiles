@@ -152,6 +152,9 @@ for config_dir in "$DOTFILES/config"/*/; do
   fi
   
   config_name=$(basename "$config_dir")
+  # Strip the trailing slash the glob adds so the readlink comparison below
+  # and the symlinks we create match adopt's convention (no trailing slash).
+  config_dir="${config_dir%/}"
   target_path="$HOME/.config/$config_name"
   
   # Check if this config was in the changed files
@@ -159,9 +162,19 @@ for config_dir in "$DOTFILES/config"/*/; do
     continue
   fi
   
-  # Skip if already correctly symlinked
-  if [[ -L "$target_path" ]] && [[ "$(readlink "$target_path")" == "$config_dir" ]]; then
-    continue
+  # If it's already a symlink into dotfiles, it's correct (tolerate a trailing
+  # slash in the stored link target, which older versions of this script wrote).
+  # Auto-heal that trailing slash so link targets stay consistent with adopt.
+  if [[ -L "$target_path" ]]; then
+    current_target="$(readlink "$target_path")"
+    if [[ "${current_target%/}" == "$config_dir" ]]; then
+      if [[ "$current_target" != "$config_dir" ]]; then
+        ln -sfn "$config_dir" "$target_path"
+        log "healed symlink for $config_name - normalized trailing slash"
+        symlink_updated=true
+      fi
+      continue
+    fi
   fi
   
   # If target exists but is not our symlink
