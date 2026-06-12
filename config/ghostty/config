@@ -1,7 +1,7 @@
 auto-update = check
 auto-update-channel = tip
 
-font-family = MonoLisa
+font-family = MonoLisa Variable
 font-feature = -liga
 font-feature = -calt
 font-feature = -dlig
