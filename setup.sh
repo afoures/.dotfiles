@@ -87,7 +87,7 @@ clone_and_update_repository() {
 
   if [ ! -d "$path" ]; then
     echo "warning: failed to clone the '$repository' repo. check this manually."
-    exit 1
+    return 1
   fi
 
   if [ "$update_submodules" = "true" ]; then
@@ -200,7 +200,11 @@ setup_fonts() {
     font_src=$(mktemp -d "/tmp/fonts.XXXXXX")
     local font_dst="$HOME/Library/Fonts"
 
-    clone_and_update_repository afoures/fonts "$font_src" false
+    if ! clone_and_update_repository afoures/fonts "$font_src" false; then
+      echo "warning: skipping font installation."
+      rm -rf "$font_src"
+      return
+    fi
 
     mkdir -p "$font_dst"
     find "$font_src" -type f \( -iname '*.ttf' -o -iname '*.otf' -o -iname '*.ttc' \) -print0 \
@@ -281,7 +285,7 @@ run_all() {
   mkdir -p "$WORKSPACE"
   setup_xcode_select
   setup_github_ssh_key
-  clone_and_update_repository afoures/.dotfiles "$DOTFILES" true
+  clone_and_update_repository afoures/.dotfiles "$DOTFILES" true || exit 1
   backup_current_config
   setup_homebrew
   setup_symlinks
