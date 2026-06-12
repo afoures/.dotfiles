@@ -74,7 +74,7 @@ function set_emoji {
 }
 
 function random_emoji {
-  local emojis=(🚀 👻 🦄 🐳 🐙 🦖 🦕 🐢 👀 🧠 💭 🐉 🍉 🌈)
+  local emojis=(🚀 🦄 🐳 🐙 🦖 🦕 🐢 👀 🧠 💭 🦝 🧙🏻‍♂️ 🐸 🪐 🍪 🤖)
  
   local filtered_emojis=()
   for emoji in "${emojis[@]}"; do
@@ -86,9 +86,10 @@ function random_emoji {
   set_emoji "${filtered_emojis[RANDOM % $#filtered_emojis + 1]}"
 }
 
-alias blastoff="set_emoji 🚀"
-alias trex="set_emoji 🦖"
-alias octopus="set_emoji 🐙"
+alias e_blastoff="set_emoji 🚀"
+alias e_trex="set_emoji 🦖"
+alias e_octopus="set_emoji 🐙"
+alias e_frog="set_emoji 🐸"
 alias rde="random_emoji"
 
 random_emoji
