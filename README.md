@@ -20,6 +20,17 @@ This bootstraps a fresh machine. `setup.sh`:
 
 > Requires Full Disk Access for your terminal so the `defaults write` step works.
 
+On an already-set-up machine you can re-run a single part instead of the whole
+bootstrap by passing a command:
+
+```bash
+sh setup.sh fonts      # reinstall fonts only
+sh setup.sh macos      # re-apply macOS defaults
+sh setup.sh brew       # re-run brew bundle
+sh setup.sh symlinks   # re-link configs
+sh setup.sh help       # list commands
+```
+
 ## Layout
 
 ```

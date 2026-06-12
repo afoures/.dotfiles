@@ -194,6 +194,25 @@ setup_osx() {
   fi
 }
 
+setup_fonts() {
+  if [ "$(uname)" == "Darwin" ]; then
+    local font_src
+    font_src=$(mktemp -d "/tmp/fonts.XXXXXX")
+    local font_dst="$HOME/Library/Fonts"
+
+    clone_and_update_repository afoures/fonts "$font_src" false
+
+    mkdir -p "$font_dst"
+    find "$font_src" -type f \( -iname '*.ttf' -o -iname '*.otf' -o -iname '*.ttc' \) -print0 \
+      | while IFS= read -r -d '' font; do
+          cp -f "$font" "$font_dst/"
+          echo "installed font: $(basename "$font")"
+        done
+
+    rm -rf "$font_src"
+  fi
+}
+
 setup_symlinks() {
   echo "this will create symlinks for all config directories"
   read -p "confirm (y/n)? " -n 1 -r
@@ -245,12 +264,37 @@ setup_symlinks() {
 }
 
 
-mkdir -p $WORKSPACE
+usage() {
+  cat <<EOF
+usage: setup.sh [command]
 
-setup_xcode_select
-setup_github_ssh_key
-clone_and_update_repository afoures/.dotfiles $DOTFILES true
-backup_current_config
-setup_homebrew
-setup_symlinks
-setup_osx
+  (no arg)   run the full bootstrap
+  fonts      install fonts only
+  macos      apply macOS defaults only
+  brew       install Homebrew + run brew bundle only
+  symlinks   link config dirs into ~/.config only
+  help       show this message
+EOF
+}
+
+run_all() {
+  mkdir -p "$WORKSPACE"
+  setup_xcode_select
+  setup_github_ssh_key
+  clone_and_update_repository afoures/.dotfiles "$DOTFILES" true
+  backup_current_config
+  setup_homebrew
+  setup_symlinks
+  setup_fonts
+  setup_osx
+}
+
+case "${1:-all}" in
+  all)            run_all ;;
+  fonts)          setup_fonts ;;
+  macos)          setup_osx ;;
+  brew)           setup_homebrew ;;
+  symlinks)       setup_symlinks ;;
+  help|-h|--help) usage ;;
+  *)              echo "unknown command: $1" >&2; usage; exit 1 ;;
+esac
