@@ -19,6 +19,8 @@ cursor-style-blink = true
 adjust-underline-thickness = 2
 adjust-cursor-thickness = 2
 adjust-cell-height = 10%
+custom-shader = shaders/cursor-trail.glsl
+custom-shader-animation = always
 
 background-opacity = 0.95
 background-blur-radius = 20
