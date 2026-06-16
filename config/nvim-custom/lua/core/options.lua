@@ -13,7 +13,7 @@ opt.termguicolors = true
 opt.number = true
 opt.relativenumber = true
 
-opt.guicursor = 'c-n:hor50-Cursor,i:ver50-Cursor,a:blinkon1'
+opt.guicursor = 'c-n:hor50-Cursor,i:ver50-Cursor,a:blinkwait700-blinkoff400-blinkon250-Cursor'
 opt.cursorline = true
 
 -- vim.opt.mouse = 'a'
