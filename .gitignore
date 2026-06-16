@@ -1,7 +1,6 @@
 .zcompdump
 Brewfile.lock.json
 .backups
-private.sh
+config/zsh/.zshrc.local
 config/tmux/plugins/*
 config/.wrangler
-config/zsh/.zsh_sessions

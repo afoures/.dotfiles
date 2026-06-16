@@ -3,8 +3,6 @@
 
 # ~~~~~~~~~~~~~~~ aliases ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-alias reload_zshrc="source $ZDOTDIR/.zshrc"
-
 function archive {
   mkdir -p $WORKSPACE/.archives
   mv $@ $WORKSPACE/.archives/
@@ -94,15 +92,37 @@ alias rde="random_emoji"
 
 random_emoji
 
-autoload -Uz vcs_info
-
 zmodload zsh/datetime
 
+# fast pure-zsh branch reader — replaces vcs_info, which forks git (~20ms/prompt)
+prompt_git_branch() {
+  vcs_branch_raw=""
+  local dir=$PWD gitdir head ref
+  while [[ -n $dir ]]; do
+    if [[ -d $dir/.git ]]; then
+      gitdir=$dir/.git; break
+    elif [[ -f $dir/.git ]]; then            # worktree/submodule: .git is a file
+      gitdir=${$(<$dir/.git)#gitdir: }
+      [[ $gitdir != /* ]] && gitdir=$dir/$gitdir
+      break
+    fi
+    dir=${dir%/*}
+  done
+  [[ -n $gitdir && -r $gitdir/HEAD ]] || return
+  head=$(<$gitdir/HEAD)
+  if [[ $head == ref:* ]]; then
+    ref=${head#ref: refs/heads/}             # normal branch (keeps slashes)
+  else
+    ref=${head[1,7]}                         # detached HEAD: short sha
+  fi
+  vcs_branch_raw=${git_prompt_format/\%b/${ref//\%/%%}}
+}
+
+# sets REPLY instead of echoing, so callers avoid a subshell fork
 get_visible_length() {
   local input=$1
   local invisible='%([BSUbfksu]|([FK]|){*})' # (1)
-  local length=${#${(S%%)input//$~invisible/}}
-  echo $length
+  REPLY=${#${(S%%)input//$~invisible/}}
 }
 
 compute_execution_time() {
@@ -136,18 +156,21 @@ make_prompt() {
   local current_dir="%F{6}%~%f"
   local vcs_branch=""
   local return_code="%(?.%f.%F{1})•%f"
-  local current_nvim_config="%F{8}(${$(cat "$XDG_CONFIG_HOME/nvim/appname")//nvim-/})%f"
+  local current_nvim_config="%F{8}(${nvim_appname//nvim-/})%f"
 
-  if [[ -z $TMUX ]]; then 
+  if [[ -z $TMUX ]]; then
     # only add git infos outside of tmux
-    vcs_branch="%b${vcs_info_msg_0_}%f%b"
+    vcs_branch="%b${vcs_branch_raw}%f%b"
   fi
 
   left_prompt="╭─ ${current_dir}${vcs_branch} ${current_emoji} "
   right_prompt=" ${current_nvim_config} ${execution_time}${return_code}"
 
   local terminal_width=$(( COLUMNS - ${ZLE_RPROMPT_INDENT:-1} ))
-  fill_bar="${(l:$(( terminal_width - $(get_visible_length $left_prompt) - $(get_visible_length $right_prompt) ))::─:)}"
+  local left_len right_len
+  get_visible_length "$left_prompt";  left_len=$REPLY
+  get_visible_length "$right_prompt"; right_len=$REPLY
+  fill_bar="${(l:$(( terminal_width - left_len - right_len ))::─:)}"
 
   PROMPT='${left_prompt}${fill_bar}${right_prompt}
 ╰─ %b$ '
@@ -160,18 +183,19 @@ prompt_preexec() {
 }
 
 prompt_precmd() {
-  vcs_info
+  nvim_appname=$(<"$XDG_CONFIG_HOME/nvim/appname")
+  export NVIM_APPNAME=$nvim_appname
+  [[ -z $TMUX ]] && prompt_git_branch    # branch only shown outside tmux
   compute_execution_time
   make_prompt
-  export NVIM_APPNAME=$(cat $XDG_CONFIG_HOME/nvim/appname)
 }
 
 # making sure prompt is correctly extended
 setopt prompt_subst
 setopt nopromptbang prompt{cr,percent,sp,subst}
 
-# format the vcs_info_msg_0_ variable
-zstyle ':vcs_info:git:*' formats ' on %F{5} %b'
+# branch segment template; %b is replaced with the branch name by prompt_git_branch
+git_prompt_format=' on %F{5} %b'
 
 preexec_functions+=(prompt_preexec)
 precmd_functions+=(prompt_precmd)
@@ -204,7 +228,7 @@ zstyle ':completion:*' menu select
 
 # ~~~~~~~~~~~~~~~ sourcing ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-[[ -f "$ZDOTDIR/.privaterc" ]] && source "$ZDOTDIR/.privaterc"
+[[ -f "$ZDOTDIR/.zshrc.local" ]] && source "$ZDOTDIR/.zshrc.local"
 
 eval "$(fnm env --use-on-cd --corepack-enabled)"
 
