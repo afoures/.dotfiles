@@ -10,11 +10,13 @@
 //  Recommended ghostty config:
 //      cursor-style             = underline
 //      custom-shader            = ~/.config/ghostty/shaders/cursor_underscore_trail.glsl
-//      custom-shader-animation  = always
 //
-//  `custom-shader-animation = always` keeps the trail animating even when the
-//  cursor would otherwise be treated as idle (e.g. the line/underline cursor
-//  turning hollow on unfocus, which can freeze the animation otherwise).
+//  `custom-shader-animation = always` is NOT needed and is deliberately omitted.
+//  It was originally recommended to stop a trail freezing mid-flight when the
+//  surface lost focus and the underline cursor turned into a hollow box. The
+//  SHAPE-CHANGE SUPPRESSION below fixes that at the source by never starting a
+//  trail for a shape change, so there is nothing left to freeze — and `always`
+//  costs a continuous render loop on EVERY surface, focused or not.
 // =============================================================================
 
 // sRGB -> Linear conversion (needed because Ghostty passes sRGB values but the shader pipeline operates in linear color space)
@@ -23,7 +25,16 @@ vec3 sRGBToLinear(vec3 c) {
 }
 
 // --- CONFIGURATION ---
-vec4 TRAIL_COLOR = vec4(sRGBToLinear(iCurrentCursorColor.rgb), iCurrentCursorColor.a); // for custom color: vec4(0.2, 0.6, 1.0, 0.5); (wrap in sRGBToLinear for correct brightness)
+// A function, not a global. A global with a non-const initializer is evaluated on
+// EVERY fragment invocation — including the idle frames where the trail branch is
+// never taken, making its three pow() calls per pixel pure waste. Those idle frames
+// are exactly what `custom-shader-animation = always` adds, so keeping this off the
+// idle path is the one micro-optimisation that touches the always-on case at all.
+// For a custom color: return vec4(0.2, 0.6, 1.0, 0.5); (wrap rgb in sRGBToLinear
+// for correct brightness).
+vec4 trailColor() {
+    return vec4(sRGBToLinear(iCurrentCursorColor.rgb), iCurrentCursorColor.a);
+}
 const float DURATION = 0.09; // in seconds
 const float MAX_TRAIL_LENGTH = 0.2;
 const float THRESHOLD_MIN_DISTANCE = 1.5; // min distance to show trail (units of cursor width)
@@ -89,7 +100,8 @@ const float SPRING_DAMPING = 0.9;
 
 // EaseOutCirc
 float ease(float x) {
-    return sqrt(1.0 - pow(x - 1.0, 2.0));
+    float d = x - 1.0;
+    return sqrt(1.0 - d * d);
 }
 
 // // EaseOutBack
@@ -198,13 +210,45 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
     // ---------------------------------------------------------------------
     // Thickness from WIDTH (.z), never from the reported height (.w). The bottom
     // edge (.y - .w) stays at the cell bottom whether the cursor reports a thin
-    // underline or a full-cell hollow block, so this bar is stable through blinks
-    // and focus changes — no ballooning, no phantom trail.
+    // underline or a full-cell hollow block, so the BAR ITSELF is stable through
+    // blinks and focus changes — no ballooning. It does not, however, stop a
+    // phantom trail: see SHAPE-CHANGE SUPPRESSION below.
     float uThick = currentCursor.z * UNDERSCORE_THICKNESS;
 
     // movement threshold keyed off WIDTH (.z), not height — an underscore's
     // height is tiny, so a height-based threshold would be meaningless.
     float minDist = currentCursor.z * THRESHOLD_MIN_DISTANCE;
+
+    // ---------------------------------------------------------------------
+    //  SUPPRESSION: changes that are not cursor MOVEMENT
+    //
+    //  iTimeCursorChange resets when the cursor "changes position or color",
+    //  and the reported position is in SCREEN space. So anything that moves the
+    //  cursor's pixels without the cursor moving through the buffer still
+    //  restarts the animation, and the trail then plays across a gap the cursor
+    //  never travelled — starting from wherever it used to be on screen.
+    //
+    //  A viewport SCROLL is the other instance of this: it slides the cursor's
+    //  screen position by whole lines while the cursor stays put in the buffer,
+    //  so the trail replays from the pre-scroll position. That is KNOWN and
+    //  deliberately NOT suppressed here. Ghostty exposes no viewport or scroll
+    //  uniform, so screen space is all this shader sees, and a one-line scroll
+    //  is mathematically identical to an arrow-key move. Any fix is a heuristic
+    //  on jump size that also kills legitimate large vertical moves. Don't.
+    //
+    //    unfocused     — Ghostty swaps cursor-style=underline for a hollow
+    //                    full-cell box when the surface loses focus. iFocus is
+    //                    the authoritative signal (1 focused / 0 unfocused) and
+    //                    is documented as existing precisely so shaders can skip
+    //                    artifacts from these "deceptive frames".
+    //    heightChanged — catches the transition frames in both directions, where
+    //                    iFocus has already flipped but the two cursors still
+    //                    straddle the shape swap. Must be read BEFORE the
+    //                    collapse below, which overwrites .w with uThick.
+    // ---------------------------------------------------------------------
+    float unfocused = 1.0 - step(0.5, float(iFocus));
+    float heightChanged = step(1e-4, abs(currentCursor.w - previousCursor.w));
+    float suppress = max(unfocused, heightChanged);
 
     currentCursor  = vec4(currentCursor.x,  currentCursor.y  - currentCursor.w  + uThick, currentCursor.z,  uThick);
     previousCursor = vec4(previousCursor.x, previousCursor.y - previousCursor.w + uThick, previousCursor.z, uThick);
@@ -220,7 +264,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
      vec4 newColor = vec4(fragColor);
 
      float progress = clamp((iTime - iTimeCursorChange) / DURATION, 0.0, 1.0);
-     if (lineLength > minDist) {
+     if (lineLength > minDist && suppress < 0.5) {
          // ANIMATION logic
 
         float head_eased = 0.0;
@@ -245,42 +289,53 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
         float isVertical = step(delta_abs.x, threshold);
         float isStraightMove = max(isHorizontal, isVertical);
 
-        // -- Making the parallelogram sdf (diagonal move) --
+        // -- BUILDING THE TRAIL SDF --
+        // A real `if`, not a mix() of both shapes. Every input below derives only
+        // from uniforms, so isStraightMove is identical for every fragment in the
+        // draw: the branch is fully coherent and costs no divergence. The previous
+        // mix() evaluated BOTH shapes and threw one away, so the 4-segment
+        // parallelogram was computed on every straight move — i.e. on ordinary
+        // typing, the overwhelmingly common case.
+        //
+        // This does not contradict the branchless style inside seg() below. That
+        // one avoids conditionals that vary PER PIXEL; this one selects on a value
+        // that is constant across the whole frame.
+        float sdfTrail;
 
-        // animate the TOP-LEFT corners
-        vec2 head_pos_tl = mix(previousCursor.xy, currentCursor.xy, head_eased);
-        vec2 tail_pos_tl = mix(previousCursor.xy, currentCursor.xy, tail_eased);
+        if (isStraightMove > 0.5) {
+            // -- rectangle sdf (horizontal or vertical move) --
+            vec2 head_center = mix(centerCP, centerCC, head_eased);
+            vec2 tail_center = mix(centerCP, centerCC, tail_eased);
 
-        float isTopRightLeading = determineIfTopRightIsLeading(currentCursor.xy, previousCursor.xy);
-        float isBottomLeftLeading = 1.0 - isTopRightLeading;
+            vec2 min_center = min(head_center, tail_center);
+            vec2 max_center = max(head_center, tail_center);
 
-        // v0, v1 : "front" of the trail (head)
-        vec2 v0 = vec2(head_pos_tl.x + currentCursor.z * isTopRightLeading, head_pos_tl.y - currentCursor.w);
-        vec2 v1 = vec2(head_pos_tl.x + currentCursor.z * isBottomLeftLeading, head_pos_tl.y);
+            vec2 box_size = (max_center - min_center) + currentCursor.zw;
+            vec2 box_center = (min_center + max_center) * 0.5;
 
-        // v2, v3: "back" of the trail (tail)
-        vec2 v2 = vec2(tail_pos_tl.x + currentCursor.z * isBottomLeftLeading, tail_pos_tl.y);
-        vec2 v3 = vec2(tail_pos_tl.x + currentCursor.z * isTopRightLeading, tail_pos_tl.y - previousCursor.w);
+            sdfTrail = getSdfRectangle(vu, box_center, box_size * 0.5);
+        } else {
+            // -- parallelogram sdf (diagonal move) --
 
-        float sdfTrail_diag = getSdfParallelogram(vu, v0, v1, v2, v3);
+            // animate the TOP-LEFT corners
+            vec2 head_pos_tl = mix(previousCursor.xy, currentCursor.xy, head_eased);
+            vec2 tail_pos_tl = mix(previousCursor.xy, currentCursor.xy, tail_eased);
 
-        // -- Making the rectangle sdf (straight move) --
+            float isTopRightLeading = determineIfTopRightIsLeading(currentCursor.xy, previousCursor.xy);
+            float isBottomLeftLeading = 1.0 - isTopRightLeading;
 
-        vec2 head_center = mix(centerCP, centerCC, head_eased);
-        vec2 tail_center = mix(centerCP, centerCC, tail_eased);
+            // v0, v1 : "front" of the trail (head)
+            vec2 v0 = vec2(head_pos_tl.x + currentCursor.z * isTopRightLeading, head_pos_tl.y - currentCursor.w);
+            vec2 v1 = vec2(head_pos_tl.x + currentCursor.z * isBottomLeftLeading, head_pos_tl.y);
 
-        vec2 min_center = min(head_center, tail_center);
-        vec2 max_center = max(head_center, tail_center);
+            // v2, v3: "back" of the trail (tail)
+            vec2 v2 = vec2(tail_pos_tl.x + currentCursor.z * isBottomLeftLeading, tail_pos_tl.y);
+            vec2 v3 = vec2(tail_pos_tl.x + currentCursor.z * isTopRightLeading, tail_pos_tl.y - previousCursor.w);
 
-        vec2 box_size = (max_center - min_center) + currentCursor.zw;
-        vec2 box_center = (min_center + max_center) * 0.5;
+            sdfTrail = getSdfParallelogram(vu, v0, v1, v2, v3);
+        }
 
-        float sdfTrail_rect = getSdfRectangle(vu, box_center, box_size * 0.5);
-
-        // -- FINAL SELECTING AND DRAWING --
-        float sdfTrail = mix(sdfTrail_diag, sdfTrail_rect, isStraightMove);
-
-        vec4 trail = TRAIL_COLOR;
+        vec4 trail = trailColor();
         float trailAlpha = antialising(sdfTrail);
         // Fade the trail out over the final stretch. At rest (progress == 1) the
         // trail collapses onto the cursor, but its soft antialiased edge spills
