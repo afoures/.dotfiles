@@ -8,14 +8,14 @@ if [[ $# -lt 1 ]]; then
   exit 1
 fi
 
-CONFIG_NAME="$1"
-SOURCE_PATH="$HOME/.config/$CONFIG_NAME"
-DEST_PATH="$DOTFILES/config/$CONFIG_NAME"
-
 if [[ -z "${DOTFILES:-}" ]]; then
   echo "error: DOTFILES environment variable is not set" >&2
   exit 1
 fi
+
+CONFIG_NAME="$1"
+SOURCE_PATH="$HOME/.config/$CONFIG_NAME"
+DEST_PATH="$DOTFILES/config/$CONFIG_NAME"
 
 if [[ ! -d "$SOURCE_PATH" ]]; then
   echo "error: '$SOURCE_PATH' does not exist or is not a directory" >&2
@@ -52,7 +52,7 @@ echo ""
 read -rp "commit message [$DEFAULT_MESSAGE]: " message
 message="${message:-$DEFAULT_MESSAGE}"
 
-git commit -m "$message"
+git commit -m "$message" -- "config/$CONFIG_NAME"
 
 echo ""
 echo "committed: $message"

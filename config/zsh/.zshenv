@@ -65,8 +65,5 @@ export PATH
 # Homebrew
 eval "$(/opt/homebrew/bin/brew shellenv)"
 
-# opencode
-export PATH=/Users/antoine.foures/.opencode/bin:$PATH
-
 # bun completions
 [ -s "/Users/antoine.foures/.local/share/bun/_bun" ] && source "/Users/antoine.foures/.local/share/bun/_bun"

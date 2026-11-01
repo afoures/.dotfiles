@@ -217,12 +217,26 @@ setup_fonts() {
   fi
 }
 
+# move an existing path into a fresh backup snapshot before it gets replaced,
+# so `setup.sh symlinks` is safe to run without the full bootstrap backup
+backup_path() {
+  local target_path=$1
+  local backup_subdir=$2
+  local backup_dir="$DOTFILES/.backups/backup_$(date +%s)/$backup_subdir"
+
+  mkdir -p "$backup_dir"
+  mv "$target_path" "$backup_dir/"
+  echo "backed up ${target_path/#$HOME/~} to ${backup_dir/#$HOME/~}"
+}
+
 setup_symlinks() {
   echo "this will create symlinks for all config directories"
   read -p "confirm (y/n)? " -n 1 -r
+  echo
   if [[ ! $REPLY =~ ^[Yy]$ ]]
   then
-    exit 1
+    echo "skipping symlinks."
+    return 0
   fi
 
   # Create .config directory if it doesn't exist
@@ -234,21 +248,29 @@ setup_symlinks() {
   # Symlink each config directory individually
   for config_dir in "$DOTFILES/config"/*/; do
     if [[ -d "$config_dir" ]]; then
+      # the glob adds a trailing slash; links are stored without it
+      config_dir="${config_dir%/}"
       config_name=$(basename "$config_dir")
       target_path="$HOME/.config/$config_name"
-      
-      # Skip if already correctly symlinked
-      if [[ -L "$target_path" && "$(readlink "$target_path")" == "$config_dir" ]]; then
-        echo "symlink for $config_name already exists and is correct, skipping"
-        continue
+
+      if [[ -L "$target_path" ]]; then
+        current_target="$(readlink "$target_path")"
+        if [[ "$current_target" == "$config_dir" ]]; then
+          echo "symlink for $config_name already exists and is correct, skipping"
+          continue
+        fi
+        # our own link, written with a trailing slash by older versions
+        if [[ "${current_target%/}" == "$config_dir" ]]; then
+          ln -sfn "$config_dir" "$target_path"
+          echo "healed symlink for $config_name - removed trailing slash"
+          continue
+        fi
       fi
-      
-      # Remove existing directory/file if it exists (backup already done by backup.sh)
+
       if [[ -e "$target_path" || -L "$target_path" ]]; then
-        rm -rf "$target_path"
+        backup_path "$target_path" ".config"
       fi
-      
-      # Create symlink
+
       ln -s "$config_dir" "$target_path"
       echo "created symlink for $config_name"
     fi
@@ -258,9 +280,8 @@ setup_symlinks() {
   if [[ -L "$HOME/.zshenv" && "$(readlink "$HOME/.zshenv")" == "$HOME/.config/zsh/.zshenv" ]]; then
     echo ".zshenv symlink already correct, skipping"
   else
-    # Remove existing file if it exists (backup already done by backup.sh)
     if [[ -e "$HOME/.zshenv" || -L "$HOME/.zshenv" ]]; then
-      rm -rf "$HOME/.zshenv"
+      backup_path "$HOME/.zshenv" ""
     fi
     ln -s "$HOME/.config/zsh/.zshenv" "$HOME/.zshenv"
     echo "created symlink for $HOME/.zshenv"

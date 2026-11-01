@@ -42,7 +42,9 @@ backup.sh    snapshots existing config before changes
 ```
 
 `bin/` helpers: `sync-dotfiles` (pull + re-link + reload), `adopt` (move a local
-config into the repo and symlink it back), `switch-session`, `switch-nvim-config`.
+config into the repo and symlink it back), `forget` (the reverse: move a config
+back to `~/.config` as a plain directory and stop tracking it; `zsh`, `git` and
+`nvim` can't be forgotten), `switch-session`, `switch-nvim-config`.
 
 ## Syncing changes
 
@@ -55,7 +57,9 @@ sync-dotfiles --quiet    # for background/cron use
 
 It fetches `origin/main`, refuses to pull on conflicts, updates symlinks for
 changed configs (backing up anything in the way), runs `brew bundle` if the
-brewfile changed, and reloads tmux automatically.
+brewfile changed, and reloads tmux automatically. Configs that were `forget`-ten
+on another machine are restored to `~/.config/<name>` as plain directories, so
+every machine keeps its copy.
 
 ## Brewfiles
 

@@ -144,7 +144,41 @@ if echo "$changed_files" | grep -q "^brew/default-setup"; then
   actions_done+=("brew packages updated")
 fi
 
-# 2. Handle symlinks for new/changed config directories
+# 2. Handle configs forgotten on another machine: the pull removed config/<name>,
+# which leaves ~/.config/<name> pointing at nothing (or at leftover ignored files).
+# Restore the last committed version as a plain directory so this machine keeps it.
+forgotten_names=$(echo "$changed_files" | sed -n 's|^config/\([^/]*\)/.*|\1|p' | sort -u)
+for config_name in $forgotten_names; do
+  config_dir="$DOTFILES/config/$config_name"
+  target_path="$HOME/.config/$config_name"
+
+  # still tracked: not forgotten, just changed
+  if [[ -n "$(git ls-tree -d "$new_head" "config/$config_name")" ]]; then
+    continue
+  fi
+
+  # only touch our own symlink; anything else is the user's
+  if [[ ! -L "$target_path" ]]; then
+    continue
+  fi
+  current_target="$(readlink "$target_path")"
+  if [[ "${current_target%/}" != "$config_dir" ]]; then
+    continue
+  fi
+
+  rm "$target_path"
+  # keep ignored files (e.g. node_modules) that git left behind in the repo
+  if [[ -d "$config_dir" ]]; then
+    mv "$config_dir" "$target_path"
+  else
+    mkdir -p "$target_path"
+  fi
+  git archive --format=tar "$prev_head" "config/$config_name" | tar -xf - -C "$target_path" --strip-components 2
+  log "restored $config_name to ${target_path/#$HOME/~} - it was forgotten from dotfiles"
+  actions_done+=("$config_name forgotten - restored as a local config")
+done
+
+# 3. Handle symlinks for new/changed config directories
 symlink_updated=false
 for config_dir in "$DOTFILES/config"/*/; do
   if [[ ! -d "$config_dir" ]]; then
@@ -162,17 +196,10 @@ for config_dir in "$DOTFILES/config"/*/; do
     continue
   fi
   
-  # If it's already a symlink into dotfiles, it's correct (tolerate a trailing
-  # slash in the stored link target, which older versions of this script wrote).
-  # Auto-heal that trailing slash so link targets stay consistent with adopt.
+  # Already a symlink into dotfiles (older setups wrote a trailing slash, still valid)
   if [[ -L "$target_path" ]]; then
     current_target="$(readlink "$target_path")"
     if [[ "${current_target%/}" == "$config_dir" ]]; then
-      if [[ "$current_target" != "$config_dir" ]]; then
-        ln -sfn "$config_dir" "$target_path"
-        log "healed symlink for $config_name - normalized trailing slash"
-        symlink_updated=true
-      fi
       continue
     fi
   fi
@@ -227,7 +254,7 @@ if [[ "$symlink_updated" == "true" ]]; then
   actions_done+=("symlinks updated")
 fi
 
-# 3. Handle config reloads/notifications
+# 4. Handle config reloads/notifications
 
 # Tmux - auto reload if in tmux session
 if echo "$changed_files" | grep -q "^config/tmux/"; then

@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if [[ $# -lt 1 ]]; then
+  echo "usage: forget <config-name>" >&2
+  echo "example: forget raycast" >&2
+  exit 1
+fi
+
+if [[ -z "${DOTFILES:-}" ]]; then
+  echo "error: DOTFILES environment variable is not set" >&2
+  exit 1
+fi
+
+CONFIG_NAME="${1%/}"
+SOURCE_PATH="$DOTFILES/config/$CONFIG_NAME"
+DEST_PATH="$HOME/.config/$CONFIG_NAME"
+
+# the shell, git and the nvim appname switcher all depend on these living in dotfiles
+case "$CONFIG_NAME" in
+  zsh|git|nvim)
+    echo "error: '$CONFIG_NAME' is required by the dotfiles setup and cannot be forgotten" >&2
+    exit 1
+    ;;
+esac
+
+if [[ -z "$CONFIG_NAME" || "$CONFIG_NAME" == */* ]]; then
+  echo "error: invalid config name '$CONFIG_NAME'" >&2
+  exit 1
+fi
+
+if [[ ! -d "$SOURCE_PATH" ]]; then
+  echo "error: '${SOURCE_PATH/#$HOME/~}' does not exist or is not a directory" >&2
+  exit 1
+fi
+
+if [[ ! -L "$DEST_PATH" ]]; then
+  echo "error: '$DEST_PATH' is not a symlink (not adopted?)" >&2
+  exit 1
+fi
+
+current_target="$(readlink "$DEST_PATH")"
+if [[ "${current_target%/}" != "$SOURCE_PATH" ]]; then
+  echo "error: '$DEST_PATH' points to '$current_target', not to dotfiles" >&2
+  exit 1
+fi
+
+rm "$DEST_PATH"
+
+mv "$SOURCE_PATH" "$DEST_PATH"
+
+echo "forgot '$CONFIG_NAME' from dotfiles"
+echo "  source: ${SOURCE_PATH/#$HOME/~}"
+echo "  dest:   $DEST_PATH"
+
+cd "$DOTFILES"
+
+if ! git rm -r --cached --quiet "config/$CONFIG_NAME"; then
+  echo "" >&2
+  echo "error: failed to untrack 'config/$CONFIG_NAME'" >&2
+  echo "       the config is safe in $DEST_PATH; finish with:" >&2
+  echo "       git rm -r --cached config/$CONFIG_NAME && git commit" >&2
+  exit 1
+fi
+
+DEFAULT_MESSAGE="forget: remove $CONFIG_NAME config"
+echo ""
+read -rp "commit message [$DEFAULT_MESSAGE]: " message
+message="${message:-$DEFAULT_MESSAGE}"
+
+git commit -m "$message" -- "config/$CONFIG_NAME"
+
+echo ""
+echo "committed: $message"

@@ -230,7 +230,7 @@ zstyle ':completion:*' menu select
 
 [[ -f "$ZDOTDIR/.zshrc.local" ]] && source "$ZDOTDIR/.zshrc.local"
 
-eval "$(fnm env --use-on-cd --corepack-enabled)"
+eval "$(mise activate zsh)"
 
 # ~~~~~~~~~~~~~~~ auto-sync dotfiles ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
