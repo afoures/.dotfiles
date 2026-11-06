@@ -90,7 +90,14 @@ if ! git fetch origin main > /dev/null 2>&1; then
   exit 1
 fi
 
-number_of_new_commit=$(git rev-list HEAD...origin/main --count 2>/dev/null || echo "0")
+current_branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+if [[ "$current_branch" != "main" ]]; then
+  echo "error: dotfiles are on '${current_branch:-detached HEAD}', not 'main' - skipping sync" >&2
+  exit 1
+fi
+
+# two dots: only commits on origin/main that we don't have (not our unpushed ones)
+number_of_new_commit=$(git rev-list HEAD..origin/main --count 2>/dev/null || echo "0")
 if [[ "$number_of_new_commit" -eq 0 ]]; then
   log "dotfiles are up to date"
   exit 0
@@ -98,30 +105,19 @@ fi
 
 log "found $number_of_new_commit new commits, syncing..."
 
-# Check if pull would create merge conflicts
-# We do this by attempting a test merge (which will fail if there are conflicts)
-if ! git merge --no-commit --no-ff origin/main > /dev/null 2>&1; then
-  # Clean up the failed merge state before exiting
-  git merge --abort > /dev/null 2>&1 || true
-  
-  # Check if the failure was due to uncommitted local changes
-  if ! git diff-index --quiet --cached HEAD -- 2>/dev/null || ! git diff-files --quiet 2>/dev/null; then
-    echo "error: you have uncommitted changes that conflict with remote updates." >&2
-    echo "       please commit, stash, or resolve your local changes first." >&2
-  else
-    echo "error: pulling would create merge conflicts with your local commits." >&2
-    echo "       please resolve manually." >&2
-  fi
+# Only fast-forward: a background sync must never create merge commits
+if ! git merge-base --is-ancestor HEAD origin/main; then
+  echo "error: local main has commits that are not on origin/main." >&2
+  echo "       rebase or push them first (git pull --rebase)." >&2
   exit 1
 fi
 
-# Clean up the test merge
-git merge --abort > /dev/null 2>&1 || true
-
-# Get list of changed files before pulling
+# Get list of changed files before updating
 prev_head=$(git rev-parse HEAD)
-if ! git pull > /dev/null 2>&1; then
-  echo "error: failed to pull updates" >&2
+# git refuses a fast-forward that would overwrite uncommitted changes, without touching anything
+if ! git merge --ff-only --quiet origin/main > /dev/null 2>&1; then
+  echo "error: you have uncommitted changes that conflict with remote updates." >&2
+  echo "       please commit, stash, or resolve your local changes first." >&2
   exit 1
 fi
 new_head=$(git rev-parse HEAD)

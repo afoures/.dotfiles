@@ -29,7 +29,6 @@ export SHELL_SESSIONS_DISABLE=1
 export NPM_CONFIG_CACHE="$XDG_CACHE_HOME/npm"
 export DOCKER_CONFIG="$XDG_CONFIG_HOME/docker"
 export CLAUDE_CONFIG_DIR="$XDG_CONFIG_HOME/claude/default"
-export BUN_INSTALL="$XDG_DATA_HOME/bun"
 
 export FZF_DEFAULT_OPTS='
   --color=fg:-1,fg+:-1,bg:-1,bg+:-1
@@ -44,16 +43,10 @@ export FZF_DEFAULT_OPTS='
 
 # ~~~~~~~~~~~~~~~ path configuration ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-setopt extended_glob              # extended globbing (use `**` for recursive globbing)
-setopt null_glob                  # ignore non-matching glob patterns
-setopt globdots                   # allow globbing to match filenames starting with a dot (e.g., `.file`)
-setopt nocaseglob                 # case-insensitive globbing
-
 path=(
   $path                           # keep existing PATH entries
   $XDG_BIN_DIR
   $DOTFILES/bin                   # dotfiles scripts
-  $BUN_INSTALL/bin                # bun script
 )
 
 # remove duplicate entries and non-existent directories
@@ -64,6 +57,3 @@ export PATH
 
 # Homebrew
 eval "$(/opt/homebrew/bin/brew shellenv)"
-
-# bun completions
-[ -s "/Users/antoine.foures/.local/share/bun/_bun" ] && source "/Users/antoine.foures/.local/share/bun/_bun"

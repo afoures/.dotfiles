@@ -1,6 +1,14 @@
 #!/usr/bin/env zsh
 #zmodload zsh/zprof
 
+# ~~~~~~~~~~~~~~~ globbing ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# interactive only: in .zshenv these would leak into every zsh script
+setopt extended_glob              # extended globbing (use `**` for recursive globbing)
+setopt null_glob                  # ignore non-matching glob patterns
+setopt globdots                   # allow globbing to match filenames starting with a dot (e.g., `.file`)
+setopt nocaseglob                 # case-insensitive globbing
+
 # ~~~~~~~~~~~~~~~ aliases ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 function archive {
@@ -224,7 +232,6 @@ zstyle ':completion:*' menu select
 
 # example to install completion:
 # talosctl completion zsh > $ZDOTDIR/.zfunc/_talosctl
-[ -s "/Users/afoures/.bun/_bun" ] && source "/Users/afoures/.bun/_bun"
 
 # ~~~~~~~~~~~~~~~ sourcing ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

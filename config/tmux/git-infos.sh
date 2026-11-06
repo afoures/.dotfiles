@@ -1,29 +1,39 @@
 #!/usr/bin/env bash
-if git rev-parse --is-inside-work-tree &>/dev/null; then
+# two git calls per refresh: status for branch + untracked files, diff for line counts
 
-  branch=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD 2>/dev/null)
+status=$(git status --porcelain=v2 --branch --untracked-files=all 2>/dev/null) || { echo ""; exit 0; }
 
-  tracked_files_count=$(git diff --numstat | wc -l)
-  tracked_added_lines_count=$(git diff --numstat | awk '{added += $1} END {print added}')
-  tracked_deleted_lines_count=$(git diff --numstat | awk '{deleted += $2} END {print deleted}')
+branch=""
+oid=""
+untracked_files_count=0
+while IFS= read -r line; do
+  case "$line" in
+    "# branch.head "*) branch=${line#"# branch.head "} ;;
+    "# branch.oid "*) oid=${line#"# branch.oid "} ;;
+    "? "*) untracked_files_count=$((untracked_files_count + 1)) ;;
+  esac
+done <<< "$status"
 
-  untracked_files_count=$(git ls-files --others --exclude-standard | wc -l)
-  untracked_added_lines_count=$(git ls-files --others --exclude-standard | xargs wc -l | awk '/total$/ {print $1}')
+# detached HEAD: show the short sha, like before
+[ "$branch" = "(detached)" ] && branch=${oid:0:7}
 
-  added_lines_count=$((${tracked_added_lines_count:-0} + ${untracked_added_lines_count:-0}))
-  deleted_lines_count=${tracked_deleted_lines_count:-0}
-  touched_files_count=$((${tracked_files_count:-0} + ${untracked_files_count:-0}))
+# " 3 files changed, 10 insertions(+), 2 deletions(-)" (staged + unstaged, vs HEAD)
+shortstat=$(git diff HEAD --shortstat 2>/dev/null)
+tracked_files_count=$(echo "$shortstat" | sed -n 's/^ *\([0-9]*\) file.*/\1/p')
+added_lines_count=$(echo "$shortstat" | sed -n 's/.* \([0-9]*\) insertion.*/\1/p')
+deleted_lines_count=$(echo "$shortstat" | sed -n 's/.* \([0-9]*\) deletion.*/\1/p')
 
-  output="on #[fg=5] $branch#[default]"
-  
-  changes=""
-  [ "$touched_files_count" -gt 0 ] && changes+=" #[fg=color4] $touched_files_count#[default] -"
-  [ "$added_lines_count" -gt 0 ] && changes+=" #[fg=color2] $added_lines_count#[default]"
-  [ "$deleted_lines_count" -gt 0 ] && changes+=" #[fg=color1] $deleted_lines_count#[default]"
+added_lines_count=${added_lines_count:-0}
+deleted_lines_count=${deleted_lines_count:-0}
+touched_files_count=$((${tracked_files_count:-0} + untracked_files_count))
 
-  [ -n "$changes" ] && output="$changes $output"
+output="on #[fg=5] $branch#[default]"
 
-  echo "$output"
-else
-  echo ""
-fi
+changes=""
+[ "$touched_files_count" -gt 0 ] && changes+=" #[fg=color4] $touched_files_count#[default] -"
+[ "$added_lines_count" -gt 0 ] && changes+=" #[fg=color2] $added_lines_count#[default]"
+[ "$deleted_lines_count" -gt 0 ] && changes+=" #[fg=color1] $deleted_lines_count#[default]"
+
+[ -n "$changes" ] && output="$changes $output"
+
+echo "$output"
