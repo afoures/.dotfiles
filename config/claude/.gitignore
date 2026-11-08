@@ -1,0 +1,36 @@
+# whitelist: only track hand-written config, everything else is runtime state
+#
+# git never looks inside an ignored directory, so a `!` rule can't re-include
+# a file below it. to whitelist inside default/ we:
+#   1. ignore everything at the top level     (/*)
+#   2. un-ignore the default/ dir itself      (!/default/)  -> git now descends into it
+#   3. ignore everything inside it again      (/default/*)
+#   4. re-include specific entries            (!/default/<name>)
+# same trick applies one level down for skills/ (whitelisted dir, then exclusions).
+/*
+!/.gitignore
+!/default/
+/default/*
+
+# settings & ui
+!/default/settings.json
+!/default/keybindings.json
+!/default/statusline.sh
+
+# instructions
+!/default/CLAUDE.md
+!/default/rules/
+!/default/output-styles/
+
+# extensions
+!/default/agents/
+!/default/commands/
+!/default/hooks/
+!/default/workflows/
+!/default/skills/
+/default/skills/synced/
+/default/skills/.trash/
+/default/skills/rex/
+
+# never track machine-local overrides, wherever they land
+settings.local.json
