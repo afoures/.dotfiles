@@ -38,7 +38,7 @@ alias delete_DSfiles="find . -name '.DS_Store' -type f -delete"
 
 alias g="git"
 alias gu="git undo"
-function gc { git commit -m "$@" }
+function gc { git commit -m "$*" }   # "$*": `gc fix the thing` is one message
 alias gs="git status"
 alias gss="git status -s"
 alias gcl="git clone"
@@ -178,7 +178,7 @@ compute_execution_time() {
 }
 
 make_prompt() {
-  XX='╭╮╰╯─'
+  # box-drawing chars used by the prompt, kept here for copy-paste: ╭╮╰╯─
   local current_dir="%F{6}%~%f"
   local vcs_branch=""
   local return_code="%(?.%f.%F{1})•%f"
@@ -303,6 +303,10 @@ if [[ -r $HOMEBREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.
   # the defaults below are bold; same colors without it
   ZSH_HIGHLIGHT_STYLES[unknown-token]='fg=red'
   ZSH_HIGHLIGHT_STYLES[comment]='fg=8'
+  ZSH_HIGHLIGHT_STYLES[path]='none'            # default underlines existing paths
+  ZSH_HIGHLIGHT_STYLES[path_prefix]='none'
+  ZSH_HIGHLIGHT_STYLES[path_pathseparator]='none'
+  ZSH_HIGHLIGHT_STYLES[path_prefix_pathseparator]='none'
   ZSH_HIGHLIGHT_STYLES[bracket-error]='fg=red'
   ZSH_HIGHLIGHT_STYLES[bracket-level-1]='fg=blue'
   ZSH_HIGHLIGHT_STYLES[bracket-level-2]='fg=green'

@@ -8,6 +8,20 @@
 	ignorecase = false
 [push]
 	autoSetupRemote = true
+[pull]
+	ff = only                # never create merge commits on pull; rebase or merge explicitly
+[fetch]
+	prune = true             # drop remote-tracking branches deleted on the remote
+[rebase]
+	autoStash = true         # stash/unstash uncommitted changes around a rebase
+[merge]
+	conflictStyle = zdiff3   # conflict markers also show the common ancestor
+[diff]
+	algorithm = histogram    # more readable diffs than the default myers
+[rerere]
+	enabled = true           # remember conflict resolutions and replay them
+[branch]
+	sort = -committerdate    # `git branch` lists recently used branches first
 [color]
 	ui = true
 [include]

@@ -4,4 +4,7 @@ Brewfile.lock.json
 config/zsh/.zshrc.local
 config/tmux/plugins/*
 config/.wrangler
-config/opencode/service.json
+
+# sync-dotfiles runtime files
+.sync.lock
+.last-sync

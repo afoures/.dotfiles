@@ -1,30 +1,29 @@
 #!/usr/bin/env bash
+# pick a project (the dotfiles, or <workspace>/<group>/<project>) and open or switch to its
+# tmux session. tmux runs it in a popup (prefix m), but it works from a plain shell too.
 
-code=$(find $WORKSPACE/* -mindepth 1 -maxdepth 1 -type d -not -path '*/.*')
+WORKSPACE="${WORKSPACE:-$HOME/code}"
+DOTFILES="${DOTFILES:-$WORKSPACE/.dotfiles}"
 
-selected=$(echo -e "${DOTFILES//$HOME/~}\n${code//$HOME/~}" | fzf-tmux --border-label " select session " -p -w 65% -h 65%)
-if [[ -z $selected ]]; then
-    exit 0
+selected=$(
+  {
+    echo "$DOTFILES"
+    find "$WORKSPACE"/* -mindepth 1 -maxdepth 1 -type d -not -path '*/.*'
+  } | sed "s|^$HOME|~|" | fzf --border-label " select session "
+)
+[[ -z $selected ]] && exit 0
+
+path=${selected/#\~/$HOME}
+session_name=${path#"$WORKSPACE"/}
+session_name=${session_name//./_}   # tmux doesn't allow dots in session names
+
+# "=" makes the match exact (otherwise "api" would match "api-gateway")
+if ! tmux has-session -t "=$session_name" 2>/dev/null; then
+  tmux new-session -ds "$session_name" -c "$path"
 fi
 
-session_name=${selected/#~\/code\//}
-sanitized_session_name=${session_name//./_}
-path=${selected/#~/$HOME}
-
-is_in_tmux_context=$(echo $TMUX)
-tmux_running=$(pgrep tmux)
-
-if [[ -z $is_in_tmux_context ]] && [[ -z $tmux_running ]]; then
-    tmux new-session -s "$sanitized_session_name" -c "$path"
-    exit 0
-fi
-
-if ! tmux has-session -t "$sanitized_session_name" 2> /dev/null; then
-    tmux new-session -ds "$sanitized_session_name" -c "$path"
-fi
-
-if [[ -z $is_in_tmux_context ]]; then
-  tmux attach -t "$sanitized_session_name"
+if [[ -n $TMUX ]]; then
+  tmux switch-client -t "=$session_name"
 else
-  tmux switch-client -t "$sanitized_session_name"
+  tmux attach -t "=$session_name"
 fi

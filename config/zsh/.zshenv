@@ -65,15 +65,18 @@ if [[ -x /opt/homebrew/bin/brew ]]; then
   }
 fi
 
-# order: dotfiles scripts > user binaries > homebrew > system.
+# order: dotfiles scripts > user binaries > mise shims > homebrew > system.
 # defined as a function because login shells must re-apply it: /etc/zprofile
 # runs macOS's path_helper after this file, which moves system dirs to the front.
-# (mise prepends its tool dirs later, from .zshrc)
+# mise shims make pinned tools (node, pnpm, ...) available to non-interactive
+# shells too (tmux run-shell, popups, editor jobs); interactive shells still get
+# `mise activate` from .zshrc, which puts the real tool dirs ahead of the shims.
 set_path_order() {
   typeset -gU path                # keep first occurrence of duplicates
   path=(
     $DOTFILES/bin
     $XDG_BIN_DIR
+    ${MISE_DATA_DIR:-$XDG_DATA_HOME/mise}/shims
     ${HOMEBREW_PREFIX:+$HOMEBREW_PREFIX/bin}
     ${HOMEBREW_PREFIX:+$HOMEBREW_PREFIX/sbin}
     $path                         # keep existing PATH entries
@@ -82,6 +85,3 @@ set_path_order() {
   export PATH
 }
 set_path_order
-
-# opencode
-export PATH=/Users/afoures/.opencode/bin:$PATH

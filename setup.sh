@@ -26,6 +26,10 @@ backup_current_config() {
 setup_github_ssh_key() {
   SSH_KEY="$HOME/.ssh/id_ed25519_github"
   SSH_CONFIG="$HOME/.ssh/config"
+  local new_key=false
+
+  # a fresh macOS has no ~/.ssh, and ssh-keygen -f won't create it
+  mkdir -p -m 700 "$HOME/.ssh"
 
   if [ ! -f "$SSH_KEY" ]; then
     echo "generating a new ssh key..."
@@ -36,6 +40,7 @@ setup_github_ssh_key() {
       echo "key generation failed (passphrases must match), try again."
     done
     echo "ssh key generated."
+    new_key=true
   else
     echo "ssh key already exists. skipping generation."
   fi
@@ -59,12 +64,15 @@ setup_github_ssh_key() {
       echo "ssh config for GitHub already exists. skipping."
   fi
 
-  echo ""
-  echo "your public ssh key (already copied to your clipboard):"
-  cat "${SSH_KEY}.pub"
-  cat "${SSH_KEY}.pub" | pbcopy
+  # an existing key is assumed to already be on github
+  if [ "$new_key" = "true" ]; then
+    echo ""
+    echo "your public ssh key (already copied to your clipboard):"
+    cat "${SSH_KEY}.pub"
+    pbcopy < "${SSH_KEY}.pub"
 
-  read -rp "make sure to add it to github"
+    read -rp "add it to github, then press enter to continue"
+  fi
 }
 
 clone_and_update_repository() {
