@@ -27,10 +27,12 @@ jq -r --argjson cols "$cols" '
   | (.rate_limits.five_hour.used_percentage | if . == null then null else [("5h " | dim), pct] end) as $five
   | (.rate_limits.seven_day.used_percentage | if . == null then null else [("7d " | dim), pct] end) as $seven
 
-  # the status line re-runs when the cache expires, so a fixed expiry time stays accurate
+  # claude code re-runs the status line at expiry, but that timer can be late (sleep, idle), so
+  # check the clock here too instead of trusting a possibly stale `warm`
   | (.prompt_cache as $p
      | if $p == null then null
-       elif $p.warm and $p.expires_at then [["→\($p.expires_at | strflocaltime("%H:%M"))", "34"]]
+       elif $p.warm and $p.expires_at and $p.expires_at > now
+         then [["→\($p.expires_at | strflocaltime("%H:%M"))", "34"]]
        else [["cold", "33"]] end) as $cache
 
   # session cost in gray, always with two decimals

@@ -3,7 +3,8 @@
   "theme": "dark-ansi",
   "statusLine": {
     "type": "command",
-    "command": "bash ~/.config/claude/default/statusline.sh"
+    "command": "bash ~/.config/claude/default/statusline.sh",
+    "refreshInterval": 30
   },
   "outputStyle": "Concise",
   "model": "opus[1m]",
