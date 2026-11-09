@@ -9,6 +9,9 @@
   "outputStyle": "Concise",
   "model": "opus[1m]",
   "skipWorkflowUsageWarning": true,
+  "permissions": {
+    "defaultMode": "auto"
+  },
   "hooks": {
     "SessionStart": [
       {
