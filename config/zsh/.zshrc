@@ -1,19 +1,38 @@
 #!/usr/bin/env zsh
-#zmodload zsh/zprof
 
-# ~~~~~~~~~~~~~~~ globbing ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# profile startup with: ZPROF=1 zsh -i -c exit
+[[ -n $ZPROF ]] && zmodload zsh/zprof
+
+# ~~~~~~~~~~~~~~~ options ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # interactive only: in .zshenv these would leak into every zsh script
 setopt extended_glob              # extended globbing (use `**` for recursive globbing)
-setopt null_glob                  # ignore non-matching glob patterns
 setopt globdots                   # allow globbing to match filenames starting with a dot (e.g., `.file`)
 setopt nocaseglob                 # case-insensitive globbing
+setopt interactive_comments       # allow `# comments` in typed/pasted commands
+
+# ~~~~~~~~~~~~~~~ directories ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+setopt auto_cd                    # type a directory name to cd into it
+setopt auto_pushd                 # cd pushes the previous dir on a stack: `cd -<tab>` to pick one
+setopt pushd_ignore_dups          # no duplicates in that stack
+setopt pushd_silent               # don't print the stack after each cd
+
+# ~~~~~~~~~~~~~~~ line editing ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# emacs keys (ctrl-a/e, alt-b/f, ...). must be explicit: zsh switches to vi mode
+# on its own when $EDITOR contains "vi" (ours is nvim). keep this before any bindkey.
+bindkey -e
+
+# ctrl-w / alt-backspace delete one path segment or word, not the whole `~/code/foo/bar`
+autoload -Uz select-word-style
+select-word-style bash
 
 # ~~~~~~~~~~~~~~~ aliases ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 function archive {
   mkdir -p $WORKSPACE/.archives
-  mv $@ $WORKSPACE/.archives/
+  mv "$@" $WORKSPACE/.archives/
 }
 alias delete_DSfiles="find . -name '.DS_Store' -type f -delete"
 
@@ -55,8 +74,7 @@ SAVEHIST=100000              # number of commands to save to HISTFILE
 HISTSIZE=100000              # number of commands to keep in memory
 
 setopt extendedhistory       # record timestamp + duration for each command
-setopt sharehistory          # share history across all sessions
-setopt incappendhistory      # write commands to history file immediately
+setopt sharehistory          # share history across sessions (also writes each command immediately)
 setopt histignoredups        # ignore duplicate commands
 setopt histignorespace       # ignore commands starting with space
 setopt histfindnodups        # skip duplicates during history search
@@ -214,8 +232,9 @@ precmd_functions+=(prompt_precmd)
 
 fpath+=$ZDOTDIR/.zfunc
 
-if type brew &>/dev/null; then
-  fpath+=$(brew --prefix)/share/zsh-completions
+# zsh-completions (brew); HOMEBREW_PREFIX comes from `brew shellenv` in .zshenv
+if [[ -d $HOMEBREW_PREFIX/share/zsh-completions ]]; then
+  fpath+=$HOMEBREW_PREFIX/share/zsh-completions
 fi
 
 autoload -Uz compinit
@@ -228,7 +247,23 @@ local ZCOMPDUMP_FILE="$ZCOMPDUMP_DIR/.zcompdump"
 # use -C (compile if needed) and -u (unsecure)
 compinit -C -d "$ZCOMPDUMP_FILE" -u
 
+setopt complete_in_word          # complete from the cursor, even mid-word
+setopt always_to_end             # then move the cursor to the end of the word
+
 zstyle ':completion:*' menu select
+# lowercase matches uppercase (doc -> Documents), and partial words around . _ -
+# (r.md -> README.md, f-b -> foo-bar). each entry is a separate fallback attempt,
+# so the second one repeats the case rule
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}' 'm:{a-z}={A-Z} r:|[._-]=* r:|=*'
+# group candidates under headers ("files", "aliases", "main porcelain commands", ...)
+zstyle ':completion:*' group-name ''
+zstyle ':completion:*:descriptions' format '%F{8}-- %d --%f'
+zstyle ':completion:*:warnings' format '%F{8}-- no matches --%f'
+# file colors matching macOS `ls -G` defaults (no bold): dirs blue, links magenta, executables red, ...
+zstyle ':completion:*' list-colors 'di=34' 'ln=35' 'so=32' 'pi=33' 'ex=31' 'bd=34;46' 'cd=34;43' 'su=30;41' 'sg=30;46' 'tw=30;42' 'ow=30;43'
+# cache slow completions (brew, docker, ...)
+zstyle ':completion:*' use-cache on
+zstyle ':completion:*' cache-path "$XDG_CACHE_HOME/zsh/zcompcache"
 
 # example to install completion:
 # talosctl completion zsh > $ZDOTDIR/.zfunc/_talosctl
@@ -237,7 +272,44 @@ zstyle ':completion:*' menu select
 
 [[ -f "$ZDOTDIR/.zshrc.local" ]] && source "$ZDOTDIR/.zshrc.local"
 
-eval "$(mise activate zsh)"
+(( $+commands[mise] )) && eval "$(mise activate zsh)"
+
+# ctrl-r history search, ctrl-t file picker, alt-c cd into dir
+if (( $+commands[fzf] )); then
+  # fd respects .gitignore (skips dist/, build/, ...), fzf's built-in walker doesn't
+  if (( $+commands[fd] )); then
+    export FZF_DEFAULT_COMMAND='fd --type f --hidden --exclude .git'
+    export FZF_CTRL_T_COMMAND=$FZF_DEFAULT_COMMAND
+    export FZF_ALT_C_COMMAND='fd --type d --hidden --exclude .git'
+  fi
+  export FZF_CTRL_T_OPTS="--preview 'bat --color=always --style=numbers --line-range=:300 {}'"
+  export FZF_ALT_C_OPTS="--preview 'tree -C -L 2 {}'"
+  source <(fzf --zsh)
+fi
+
+# grey inline suggestion from history as you type: → accepts it, alt-f accepts one word.
+# loaded last so it wraps every widget defined above.
+if [[ -r $HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh ]]; then
+  ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=50     # don't search history for long pasted commands
+  source $HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+fi
+
+# colors the command line as you type: unknown commands in red, strings, paths, ...
+# must be sourced after every other widget is defined (its docs require it last).
+if [[ -r $HOMEBREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]]; then
+  ZSH_HIGHLIGHT_HIGHLIGHTERS=(main brackets)   # brackets: color matching ( [ {
+  ZSH_HIGHLIGHT_MAXLENGTH=512                  # skip very long (pasted) lines, they'd lag
+  source $HOMEBREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+  # the defaults below are bold; same colors without it
+  ZSH_HIGHLIGHT_STYLES[unknown-token]='fg=red'
+  ZSH_HIGHLIGHT_STYLES[comment]='fg=8'
+  ZSH_HIGHLIGHT_STYLES[bracket-error]='fg=red'
+  ZSH_HIGHLIGHT_STYLES[bracket-level-1]='fg=blue'
+  ZSH_HIGHLIGHT_STYLES[bracket-level-2]='fg=green'
+  ZSH_HIGHLIGHT_STYLES[bracket-level-3]='fg=magenta'
+  ZSH_HIGHLIGHT_STYLES[bracket-level-4]='fg=yellow'
+  ZSH_HIGHLIGHT_STYLES[bracket-level-5]='fg=cyan'
+fi
 
 # ~~~~~~~~~~~~~~~ auto-sync dotfiles ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -260,4 +332,4 @@ eval "$(mise activate zsh)"
 #   ("$DOTFILES/bin/sync-dotfiles" --quiet --unattended &) 2>/dev/null
 # fi
 
-#zprof
+if [[ -n $ZPROF ]]; then zprof; fi

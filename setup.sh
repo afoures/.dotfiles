@@ -30,7 +30,11 @@ setup_github_ssh_key() {
   if [ ! -f "$SSH_KEY" ]; then
     echo "generating a new ssh key..."
     read -rp "enter your github email: " EMAIL
-    ssh-keygen -t ed25519 -C "$EMAIL" -f "$SSH_KEY" -N ""
+    # ssh-keygen prompts for the passphrase; it is stored in the macOS keychain
+    # below, so it only has to be typed once
+    while ! ssh-keygen -t ed25519 -C "$EMAIL" -f "$SSH_KEY"; do
+      echo "key generation failed (passphrases must match), try again."
+    done
     echo "ssh key generated."
   else
     echo "ssh key already exists. skipping generation."
@@ -122,6 +126,26 @@ setup_homebrew() {
     if [[ $REPLY =~ ^[Yy]$ ]]; then
       brew bundle cleanup --force --file="$DOTFILES/brew/default-setup"
     fi
+  fi
+}
+
+# mise is installed with its standalone installer (not brew) into ~/.local/bin,
+# then installs the tools pinned in config/mise/config.toml
+setup_mise() {
+  local mise_bin="$HOME/.local/bin/mise"
+
+  if ! command -v mise &>/dev/null && [ ! -x "$mise_bin" ]; then
+    echo "installing mise..."
+    curl -fsSL https://mise.run | sh
+    echo "mise installed."
+  else
+    echo "mise is already installed."
+  fi
+
+  if [ -x "$mise_bin" ]; then
+    "$mise_bin" install
+  else
+    mise install
   fi
 }
 
@@ -297,6 +321,7 @@ usage: setup.sh [command]
   fonts      install fonts only
   macos      apply macOS defaults only
   brew       install Homebrew + run brew bundle only
+  mise       install mise + the tools in config/mise/config.toml only
   symlinks   link config dirs into ~/.config only
   help       show this message
 EOF
@@ -310,6 +335,7 @@ run_all() {
   backup_current_config
   setup_homebrew
   setup_symlinks
+  setup_mise
   setup_fonts
   setup_osx
 }
@@ -319,6 +345,7 @@ case "${1:-all}" in
   fonts)          setup_fonts ;;
   macos)          setup_osx ;;
   brew)           setup_homebrew ;;
+  mise)           setup_mise ;;
   symlinks)       setup_symlinks ;;
   help|-h|--help) usage ;;
   *)              echo "unknown command: $1" >&2; usage; exit 1 ;;
